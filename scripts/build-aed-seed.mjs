@@ -268,9 +268,9 @@ function buildCommunityCoordKey(record) {
 async function main() {
   const outputPath = process.argv[2] || 'aed.sql';
   const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '123456',
+    host: process.env.DB_HOST || '199.21.175.91',
+    user: process.env.DB_USER || 'skyline694',
+    password: process.env.DB_PASSWORD || '29012540',
     database: process.env.DB_NAME || 'stn_aed',
     port: parseInt(process.env.DB_PORT || '3306', 10),
     waitForConnections: true,
