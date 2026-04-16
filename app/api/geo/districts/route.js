@@ -21,7 +21,7 @@ export async function GET() {
     }));
     return NextResponse.json({ type: 'FeatureCollection', features });
   } catch (error) {
-    console.error('Districts geo error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
+    console.error('Districts geo error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในระบบ', detail: error?.message, code: error?.code, sqlMessage: error?.sqlMessage }, { status: 500 });
   }
 }

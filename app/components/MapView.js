@@ -185,16 +185,16 @@ export default function MapView({
   useEffect(() => {
     if (!showDistricts || districtData) return;
     fetch('/stn-aed/api/geo/districts')
-      .then((r) => r.json())
-      .then(setDistrictData)
+      .then((r) => { if (!r.ok) throw new Error('districts fetch failed'); return r.json(); })
+      .then((d) => { if (d?.type === 'FeatureCollection') setDistrictData(d); })
       .catch(console.error);
   }, [showDistricts, districtData]);
 
   useEffect(() => {
     if (!showTambons || tambonData) return;
     fetch('/stn-aed/api/geo/tambons')
-      .then((r) => r.json())
-      .then(setTambonData)
+      .then((r) => { if (!r.ok) throw new Error('tambons fetch failed'); return r.json(); })
+      .then((d) => { if (d?.type === 'FeatureCollection') setTambonData(d); })
       .catch(console.error);
   }, [showTambons, tambonData]);
 

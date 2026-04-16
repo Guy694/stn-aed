@@ -23,7 +23,7 @@ export async function GET() {
     }));
     return NextResponse.json({ type: 'FeatureCollection', features });
   } catch (error) {
-    console.error('Tambons geo error:', error);
-    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
+    console.error('Tambons geo error:', error?.message || error);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในระบบ', detail: error?.message }, { status: 500 });
   }
 }
