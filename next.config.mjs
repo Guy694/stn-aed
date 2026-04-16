@@ -1,16 +1,17 @@
 /** @type {import('next').NextConfig} */
+const isDocker = process.env.DEPLOY_TARGET === 'docker';
+
 const nextConfig = {
-  basePath: '/stn-aed',
-  assetPrefix: '/stn-aed',
-  output: 'standalone',
+  ...(isDocker && {
+    basePath: '/stn-aed',
+    assetPrefix: '/stn-aed',
+    output: 'standalone',
+  }),
   reactCompiler: true,
   trailingSlash: true,
   experimental: {
-    serverActions: {
-      bodySizeLimit: '50mb'
-    }
+    serverActions: { bodySizeLimit: '50mb' }
   }
-  /* config options here */
 };
 
 export default nextConfig;
