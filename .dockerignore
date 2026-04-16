@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env*
+node_modules
+.next
+out
+README.md
+*.md
+*.sql
+*.mjs
+Dockerfile
+.dockerignore
+npm-debug.log*
+yarn-*.log*
+.DS_Store
