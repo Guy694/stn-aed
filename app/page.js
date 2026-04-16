@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 const DURATION = 3200; // ms before redirect
 
 export default function SplashScreen() {
@@ -69,7 +71,7 @@ export default function SplashScreen() {
             style={{ animation: 'logo-pop 0.7s cubic-bezier(.34,1.56,.64,1) 0.1s both' }}
           >
             <img
-              src="/stn-aed/img/logo.png"
+              src={`${BASE}/img/logo.png`}
               alt="AED Satun Logo"
               className="w-20 h-20 object-contain drop-shadow-lg"
             />

@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Heart, User, Lock, Eye, EyeOff, LogIn, ArrowLeft, Shield } from 'lucide-react';
 
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 export default function LoginPage() {
   const router = useRouter();
   const [form, setForm] = useState({ username: '', password: '' });
@@ -21,7 +23,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch('/stn-aed/api/auth/login', {
+      const res = await fetch(`${BASE}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

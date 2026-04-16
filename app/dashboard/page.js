@@ -1,5 +1,7 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 import Link from 'next/link';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -126,7 +128,7 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/stn-aed/api/dashboard');
+      const res = await fetch(`${BASE}/api/dashboard`);
       if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
       setData(await res.json());
     } catch (e) {

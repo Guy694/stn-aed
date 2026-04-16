@@ -1,6 +1,8 @@
 'use client';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 import Navbar from '@/app/components/Navbar';
 import AEDModal from '@/app/components/AEDModal';
 import AEDPointModal from '@/app/components/AEDPointModal';
@@ -42,7 +44,7 @@ export default function AdminPage() {
   const [aedModal, setAedModal] = useState({ open: false, aed: null });
 
   useEffect(() => {
-    fetch('/stn-aed/api/auth/me')
+    fetch(`${BASE}/api/auth/me`)
       .then((r) => r.ok ? r.json() : null)
       .then(setUser)
       .catch(() => {});
@@ -52,7 +54,7 @@ export default function AdminPage() {
 
   const loadAedList = async () => {
     setAedLoading(true);
-    const res = await fetch('/stn-aed/api/aed');
+    const res = await fetch(`${BASE}/api/aed`);
     const data = await res.json();
     if (Array.isArray(data)) setAedList(data);
     setAedLoading(false);
@@ -97,7 +99,7 @@ export default function AdminPage() {
 
   const loadFacilities = async () => {
     setLoading(true);
-    const res = await fetch('/stn-aed/api/facilities');
+    const res = await fetch(`${BASE}/api/facilities`);
     const data = await res.json();
     if (Array.isArray(data)) setFacilities(data);
     setLoading(false);
@@ -123,7 +125,7 @@ export default function AdminPage() {
   };
 
   const handleDelete = async (id) => {
-    const res = await fetch(`/stn-aed/api/facilities/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${BASE}/api/facilities/${id}`, { method: 'DELETE' });
     if (res.ok) {
       setFacilities((prev) => prev.filter((f) => f.id !== id));
       showToast('ลบข้อมูลสำเร็จ', 'success');

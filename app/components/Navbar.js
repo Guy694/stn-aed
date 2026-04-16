@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { MapPin, BarChart2, LayoutDashboard, LogIn, LogOut, Menu, X, Heart, Shield } from 'lucide-react';
@@ -10,7 +12,7 @@ export default function Navbar({ user }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    await fetch('/stn-aed/api/auth/logout', { method: 'POST' });
+    await fetch(`${BASE}/api/auth/logout`, { method: 'POST' });
     router.push('/login');
     router.refresh();
   };
@@ -24,7 +26,7 @@ export default function Navbar({ user }) {
           {/* Logo */}
           <Link href="/map" className="flex items-center gap-2.5 group">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-             <img src="/stn-aed/img/logo.png" alt="AED Icon" className="w-10 h-10" />
+             <img src={`${BASE}/img/logo.png`} alt="AED Icon" className="w-10 h-10" />
             </div>
             <div className="hidden sm:block">
               <p className="text-sm font-bold text-slate-900 leading-tight">ระบบติดตามจุดบริการเครื่องกู้ชีพ AED สตูล</p>

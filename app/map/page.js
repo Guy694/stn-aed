@@ -3,6 +3,9 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 import {
   Heart, X, MapPin, Activity, LogIn, LayoutDashboard,
   LogOut, Shield, ChevronLeft, ChevronRight, AlertCircle,
@@ -194,14 +197,14 @@ export default function MapPage() {
   const [showDashboard, setShowDashboard] = useState(false);
 
   useEffect(() => {
-    fetch('/stn-aed/api/auth/me')
+    fetch(`${BASE}/api/auth/me`)
       .then((r) => (r.ok ? r.json() : null))
       .then(setUser)
       .catch(() => {});
 
     Promise.all([
-      fetch('/stn-aed/api/facilities').then((r) => r.json()),
-      fetch('/stn-aed/api/aed').then((r) => r.json()),
+      fetch(`${BASE}/api/facilities`).then((r) => r.json()),
+      fetch(`${BASE}/api/aed`).then((r) => r.json()),
     ])
       .then(([fac, aed]) => {
         if (Array.isArray(fac)) setHealthFacilities(fac);
@@ -212,7 +215,7 @@ export default function MapPage() {
   }, []);
 
   const handleLogout = async () => {
-    await fetch('/stn-aed/api/auth/logout', { method: 'POST' });
+    await fetch(`${BASE}/api/auth/logout`, { method: 'POST' });
     router.push('/login');
     router.refresh();
   };
@@ -305,7 +308,7 @@ export default function MapPage() {
         <nav className="bg-white/80 backdrop-blur-2xl rounded-2xl border border-white/70 shadow-2xl px-4 py-2.5 flex items-center justify-between gap-3">
           {/* Logo */}
           <Link href="/map" className="flex items-center gap-2.5 group flex-shrink-0">
-           <img src="/stn-aed/img/logo.png" alt="AED Icon" className="w-10 h-10" />
+           <img src={`${BASE}/img/logo.png`} alt="AED Icon" className="w-10 h-10" />
             <div className="hidden sm:block">
               <p className="text-sm font-bold text-slate-900 leading-tight">ระบบติดตามจุดบริการเครื่องกู้ชีพ AED สตูล</p>
               <p className="text-xs text-slate-500 leading-none">สำนักงานสาธารณสุขจังหวัดสตูล</p>

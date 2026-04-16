@@ -1,5 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 import dynamic from 'next/dynamic';
 import { X, Save, Crosshair, MapPin } from 'lucide-react';
 
@@ -66,7 +68,7 @@ export default function AEDPointModal({ aed, onClose, onSave }) {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`/stn-aed/api/aed/${aed.id}`, {
+      const res = await fetch(`${BASE}/api/aed/${aed.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

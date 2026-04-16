@@ -4,6 +4,8 @@ import { MapContainer, Marker, Popup, GeoJSON, useMapEvents, useMap } from 'reac
 import L from 'leaflet';
 import { Heart, MapPin, Layers, Satellite, Map, Info } from 'lucide-react';
 
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 // Fix Leaflet default icon issue in Next.js
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -14,14 +16,14 @@ L.Icon.Default.mergeOptions({
 
 // ── Health facility icon ──
 const FACILITY_ICON = L.icon({
-  iconUrl: '/stn-aed/img/hospital.png',
+  iconUrl: `${BASE}/img/hospital.png`,
   iconSize: [36, 36],
   iconAnchor: [18, 36],
   popupAnchor: [0, -38],
 });
 
 const FACILITY_ICON_SELECTED = L.icon({
-  iconUrl: '/stn-aed/img/hospital.png',
+  iconUrl: `${BASE}/img/hospital.png`,
   iconSize: [46, 46],
   iconAnchor: [23, 46],
   popupAnchor: [0, -48],
@@ -29,14 +31,14 @@ const FACILITY_ICON_SELECTED = L.icon({
 
 // ── AED icon ──
 const AED_ICON = L.icon({
-  iconUrl: '/stn-aed/img/aed.png',
+  iconUrl: `${BASE}/img/aed.png`,
   iconSize: [36, 36],
   iconAnchor: [18, 36],
   popupAnchor: [0, -38],
 });
 
 const AED_ICON_SELECTED = L.icon({
-  iconUrl: '/stn-aed/img/aed.png',
+  iconUrl: `${BASE}/img/aed.png`,
   iconSize: [46, 46],
   iconAnchor: [23, 46],
   popupAnchor: [0, -48],
@@ -184,7 +186,7 @@ export default function MapView({
 
   useEffect(() => {
     if (!showDistricts || districtData) return;
-    fetch('/stn-aed/api/geo/districts')
+    fetch(`${BASE}/api/geo/districts`)
       .then((r) => { if (!r.ok) throw new Error('districts fetch failed'); return r.json(); })
       .then((d) => { if (d?.type === 'FeatureCollection') setDistrictData(d); })
       .catch(console.error);
@@ -192,7 +194,7 @@ export default function MapView({
 
   useEffect(() => {
     if (!showTambons || tambonData) return;
-    fetch('/stn-aed/api/geo/tambons')
+    fetch(`${BASE}/api/geo/tambons`)
       .then((r) => { if (!r.ok) throw new Error('tambons fetch failed'); return r.json(); })
       .then((d) => { if (d?.type === 'FeatureCollection') setTambonData(d); })
       .catch(console.error);

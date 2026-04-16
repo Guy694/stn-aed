@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 const isDocker = process.env.DEPLOY_TARGET === 'docker';
 
 const nextConfig = {
-  ...(isDocker && { basePath: '/stn-aed', assetPrefix: '/stn-aed' }),
+  ...(basePath && { basePath, assetPrefix: basePath }),
   ...(isDocker && { output: 'standalone' }),
   reactCompiler: true,
   trailingSlash: true,

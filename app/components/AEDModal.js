@@ -1,5 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 import dynamic from 'next/dynamic';
 import { X, Save, MapPin, Crosshair } from 'lucide-react';
 
@@ -76,8 +78,8 @@ export default function AEDModal({ facility, onClose, onSave }) {
     setLoading(true);
     try {
       const url = isEdit
-        ? `/stn-aed/api/facilities/${facility.id}`
-        : '/stn-aed/api/facilities';
+        ? `${BASE}/api/facilities/${facility.id}`
+        : `${BASE}/api/facilities`;
       const method = isEdit ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
