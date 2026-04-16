@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MapPin, LayoutDashboard, LogIn, LogOut, Menu, X, Heart, Shield } from 'lucide-react';
+import { MapPin, BarChart2, LayoutDashboard, LogIn, LogOut, Menu, X, Heart, Shield } from 'lucide-react';
 
 export default function Navbar({ user }) {
   const pathname = usePathname();
@@ -44,6 +44,18 @@ export default function Navbar({ user }) {
             >
               <MapPin className="w-4 h-4" />
               แผนที่ AED
+            </Link>
+
+            <Link
+              href="/dashboard"
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                isActive('/dashboard')
+                  ? 'bg-sky-500/20 text-sky-600 border border-sky-500/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <BarChart2 className="w-4 h-4" />
+              Dashboard
             </Link>
 
             {user && (
@@ -107,6 +119,14 @@ export default function Navbar({ user }) {
             >
               <MapPin className="w-4 h-4" />
               แผนที่ AED
+            </Link>
+            <Link
+              href="/dashboard"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
+            >
+              <BarChart2 className="w-4 h-4" />
+              Dashboard
             </Link>
             {user && (
               <Link
