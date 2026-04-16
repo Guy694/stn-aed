@@ -305,12 +305,10 @@ export default function MapPage() {
         <nav className="bg-white/80 backdrop-blur-2xl rounded-2xl border border-white/70 shadow-2xl px-4 py-2.5 flex items-center justify-between gap-3">
           {/* Logo */}
           <Link href="/map" className="flex items-center gap-2.5 group flex-shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 via-red-600 to-rose-700 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-              <Heart className="w-5 h-5 text-white" />
-            </div>
+           <img src="/stn-aed/img/logo.png" alt="AED Icon" className="w-10 h-10" />
             <div className="hidden sm:block">
-              <p className="text-sm font-bold text-slate-900 leading-tight">ระบบ AED สตูล</p>
-              <p className="text-xs text-slate-500 leading-none">จุดบริการเครื่องกู้ชีพ</p>
+              <p className="text-sm font-bold text-slate-900 leading-tight">ระบบติดตามจุดบริการเครื่องกู้ชีพ AED สตูล</p>
+              <p className="text-xs text-slate-500 leading-none">สำนักงานสาธารณสุขจังหวัดสตูล</p>
             </div>
           </Link>
 

@@ -24,11 +24,11 @@ export default function Navbar({ user }) {
           {/* Logo */}
           <Link href="/map" className="flex items-center gap-2.5 group">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-              <Heart className="w-5 h-5 text-white" />
+             <img src="/stn-aed/img/logo.png" alt="AED Icon" className="w-10 h-10" />
             </div>
             <div className="hidden sm:block">
-              <p className="text-sm font-bold text-slate-900 leading-tight">ระบบ AED สตูล</p>
-              <p className="text-xs text-slate-500 leading-tight">จัดการจุดบริการเครื่องกู้ชีพ</p>
+              <p className="text-sm font-bold text-slate-900 leading-tight">ระบบติดตามจุดบริการเครื่องกู้ชีพ AED สตูล</p>
+              <p className="text-xs text-slate-500 leading-tight">สำนักงานสาธารณสุขจังหวัดสตูล</p>
             </div>
           </Link>
 
