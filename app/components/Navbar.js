@@ -4,7 +4,7 @@ import { useState } from 'react';
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MapPin, BarChart2, LayoutDashboard, LogIn, LogOut, Menu, X, Heart, Shield } from 'lucide-react';
+import { MapPin, BarChart2, LayoutDashboard, LogIn, LogOut, Menu, X, Heart, Shield, AlertTriangle } from 'lucide-react';
 
 export default function Navbar({ user }) {
   const pathname = usePathname();
@@ -60,7 +60,21 @@ export default function Navbar({ user }) {
               Dashboard
             </Link>
 
-            {user && (
+            {user && user.role !== 'admin' && (
+              <Link
+                href="/my-reports"
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  isActive('/my-reports')
+                    ? 'bg-sky-500/20 text-sky-600 border border-sky-500/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <AlertTriangle className="w-4 h-4" />
+                แจ้รายงาน AED
+              </Link>
+            )}
+
+            {user && user.role === 'admin' && (
               <Link
                 href="/admin"
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
@@ -130,7 +144,17 @@ export default function Navbar({ user }) {
               <BarChart2 className="w-4 h-4" />
               Dashboard
             </Link>
-            {user && (
+            {user && user.role !== 'admin' && (
+              <Link
+                href="/my-reports"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                แจ้รายงาน AED
+              </Link>
+            )}
+            {user && user.role === 'admin' && (
               <Link
                 href="/admin"
                 onClick={() => setMenuOpen(false)}
@@ -140,6 +164,8 @@ export default function Navbar({ user }) {
                 จัดการข้อมูล
               </Link>
             )}
+           
+        
             {user ? (
               <button
                 onClick={handleLogout}

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 const MapView = dynamic(() => import('@/app/components/MapView'), { ssr: false });
+import AEDReportModal from '@/app/components/AEDReportModal';
 
 // ─── Colour palette for AED types ───
 const TYPE_PALETTE = [
@@ -27,6 +28,7 @@ export default function MapPage() {
   const [user, setUser] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [error, setError] = useState(null);
+  const [reportAed, setReportAed] = useState(null);
 
   // Map layer controls
   const [tileKey, setTileKey] = useState('street');
@@ -139,6 +141,7 @@ export default function MapPage() {
           tileKey={tileKey}
           showDistricts={showDistricts}
           showTambons={showTambons}
+          onReportAED={(aed) => setReportAed(aed)}
         />
       </div>
 
@@ -469,6 +472,11 @@ export default function MapPage() {
       >
         {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
       </button>
+
+      {/* AED Report Modal */}
+      {reportAed && (
+        <AEDReportModal aed={reportAed} onClose={() => setReportAed(null)} />
+      )}
     </div>
   );
 }

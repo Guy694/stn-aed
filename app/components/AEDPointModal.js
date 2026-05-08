@@ -3,49 +3,44 @@ import { useEffect, useState } from 'react';
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 import dynamic from 'next/dynamic';
-import { X, Save, Crosshair, MapPin } from 'lucide-react';
+import { X, Save, Crosshair, MapPin, Plus } from 'lucide-react';
 
 const MapView = dynamic(() => import('./MapView'), { ssr: false });
 
-const COORD_SOURCE_LABELS = {
-  sheet_exact: 'พิกัดจากเอกสาร',
-  facility_match: 'จับคู่หน่วยบริการ',
-  tambon_centroid: 'จุดศูนย์กลางตำบล (โดยประมาณ)',
-  manual: 'แก้ไขโดยผู้ดูแล',
-  unknown: 'ไม่ทราบที่มา',
-};
-
-const COORD_SOURCE_STYLE = {
-  sheet_exact:    'bg-emerald-50 border-emerald-200 text-emerald-700',
-  facility_match: 'bg-sky-50 border-sky-200 text-sky-700',
-  tambon_centroid:'bg-amber-50 border-amber-200 text-amber-700',
-  manual:         'bg-purple-50 border-purple-200 text-purple-700',
-  unknown:        'bg-red-50 border-red-200 text-red-700',
+const DEFAULT_FORM = {
+  location_name: '',
+  district_name: '',
+  aed_affiliation: '',
+  quantity: 1,
+  manager_name: '',
+  manager_phone: '',
+  lat: '',
+  lon: '',
+  is_active: 1,
 };
 
 export default function AEDPointModal({ aed, onClose, onSave }) {
-  const [form, setForm] = useState({
-    location_name: '',
-    district_name: '',
-    tambon_name: '',
-    lat: '',
-    lon: '',
-    is_active: 1,
-  });
+  const [form, setForm] = useState(DEFAULT_FORM);
   const [picking, setPicking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const isEdit = !!aed?.id;
 
   useEffect(() => {
     if (aed) {
       setForm({
         location_name: aed.location_name || '',
         district_name: aed.district_name || '',
-        tambon_name: aed.tambon_name || '',
+        aed_affiliation: aed.manager_typecode || '',
+        quantity: aed.quantity_total ?? 1,
+        manager_name: aed.manager_name || '',
+        manager_phone: aed.manager_phone || '',
         lat: aed.lat != null ? String(aed.lat) : '',
         lon: aed.lon != null ? String(aed.lon) : '',
         is_active: aed.is_active ?? 1,
       });
+    } else {
+      setForm(DEFAULT_FORM);
     }
     setError('');
   }, [aed]);
@@ -66,20 +61,31 @@ export default function AEDPointModal({ aed, onClose, onSave }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!form.location_name.trim()) {
+      setError('กรุณาระบุชื่อจุดบริการ');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/aed/${aed.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location_name: form.location_name,
-          district_name: form.district_name,
-          tambon_name: form.tambon_name,
-          lat: form.lat !== '' ? parseFloat(form.lat) : null,
-          lon: form.lon !== '' ? parseFloat(form.lon) : null,
-          is_active: Number(form.is_active),
-        }),
-      });
+      const payload = {
+        location_name: form.location_name.trim(),
+        district_name: form.district_name || null,
+        aed_affiliation: form.aed_affiliation || null,
+        quantity: form.quantity ? parseInt(form.quantity) : 1,
+        manager_name: form.manager_name || null,
+        manager_phone: form.manager_phone || null,
+        lat: form.lat !== '' ? parseFloat(form.lat) : null,
+        lon: form.lon !== '' ? parseFloat(form.lon) : null,
+        is_active: Number(form.is_active),
+      };
+      const res = await fetch(
+        isEdit ? `${BASE}/api/aed/${aed.id}` : `${BASE}/api/aed`,
+        {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'เกิดข้อผิดพลาด');
@@ -104,9 +110,20 @@ export default function AEDPointModal({ aed, onClose, onSave }) {
       <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900">แก้ไขจุดบริการ AED</h2>
-            <p className="text-sm text-slate-500 mt-0.5 truncate max-w-xs">{aed?.location_name}</p>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${
+              isEdit ? 'bg-gradient-to-br from-sky-500 to-sky-600' : 'bg-gradient-to-br from-red-500 to-red-600'
+            }`}>
+              {isEdit ? <Save className="w-5 h-5 text-white" /> : <Plus className="w-5 h-5 text-white" />}
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                {isEdit ? 'แก้ไขจุดบริการ AED' : 'เพิ่มจุดบริการ AED'}
+              </h2>
+              {isEdit && (
+                <p className="text-sm text-slate-500 mt-0.5 truncate max-w-xs">{aed?.location_name}</p>
+              )}
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -123,27 +140,20 @@ export default function AEDPointModal({ aed, onClose, onSave }) {
             </div>
           )}
 
-          {/* Coordinate source info */}
-          {aed?.coordinate_source && (
-            <div className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm ${COORD_SOURCE_STYLE[aed.coordinate_source] || 'bg-slate-50 border-slate-200 text-slate-600'}`}>
-              <MapPin className="w-4 h-4 flex-shrink-0" />
-              <span>
-                แหล่งพิกัดปัจจุบัน:{' '}
-                <strong>{COORD_SOURCE_LABELS[aed.coordinate_source] || aed.coordinate_source}</strong>
-              </span>
-            </div>
-          )}
-
           {/* Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">ชื่อจุดบริการ</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                ชื่อจุดบริการ <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 name="location_name"
                 value={form.location_name}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
+                placeholder="ชื่อสถานที่ติดตั้งเครื่อง AED"
+                required
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
               />
             </div>
             <div>
@@ -157,12 +167,46 @@ export default function AEDPointModal({ aed, onClose, onSave }) {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">ตำบล</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">สังกัด AED</label>
               <input
                 type="text"
-                name="tambon_name"
-                value={form.tambon_name}
+                name="aed_affiliation"
+                value={form.aed_affiliation}
                 onChange={handleChange}
+                placeholder="หน่วยงานที่ดูแล"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">ผู้ดูแลเครื่อง</label>
+              <input
+                type="text"
+                name="manager_name"
+                value={form.manager_name}
+                onChange={handleChange}
+                placeholder="ชื่อ-นามสกุล"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">เบอร์ติดต่อ</label>
+              <input
+                type="text"
+                name="manager_phone"
+                value={form.manager_phone}
+                onChange={handleChange}
+                placeholder="0xx-xxxxxxx"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">จำนวนเครื่อง</label>
+              <input
+                type="number"
+                name="quantity"
+                value={form.quantity}
+                onChange={handleChange}
+                min="0"
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
               />
             </div>
@@ -243,8 +287,8 @@ export default function AEDPointModal({ aed, onClose, onSave }) {
               disabled={loading}
               className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-400 hover:to-sky-500 transition-all disabled:opacity-50"
             >
-              <Save className="w-4 h-4" />
-              {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+              {isEdit ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {loading ? 'กำลังบันทึก...' : (isEdit ? 'บันทึก' : 'เพิ่มจุดบริการ')}
             </button>
           </div>
         </form>
@@ -252,3 +296,4 @@ export default function AEDPointModal({ aed, onClose, onSave }) {
     </div>
   );
 }
+

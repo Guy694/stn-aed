@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { MapContainer, Marker, Popup, GeoJSON, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Heart, MapPin, Layers, Satellite, Map, Info } from 'lucide-react';
+import { Heart, MapPin, Layers, Satellite, Map, Info, Navigation } from 'lucide-react';
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
@@ -42,6 +42,31 @@ const AED_ICON_SELECTED = L.icon({
   iconSize: [46, 46],
   iconAnchor: [23, 46],
   popupAnchor: [0, -48],
+});
+
+// User location icon — pulsing blue dot
+const USER_LOCATION_ICON = L.divIcon({
+  className: '',
+  html: `
+    <div style="position:relative;width:32px;height:32px;">
+      <div style="
+        position:absolute;inset:0;border-radius:50%;
+        background:rgba(59,130,246,0.25);
+        animation:user-loc-pulse 2s ease-out infinite;
+      "></div>
+      <div style="
+        position:absolute;top:50%;left:50%;
+        transform:translate(-50%,-50%);
+        width:14px;height:14px;
+        background:#3b82f6;border-radius:50%;
+        border:2.5px solid white;
+        box-shadow:0 2px 10px rgba(59,130,246,0.6);
+      "></div>
+    </div>
+  `,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -20],
 });
 
 const CLICK_ICON = L.divIcon({
@@ -143,26 +168,103 @@ function FlyToSelected({ facilities, aedPoints, selectedId }) {
   return null;
 }
 
-// Custom zoom control using useMap
-function ZoomControl() {
-  const map = useMap();
+// Inject keyframe for user-location pulse once
+const USER_LOC_STYLE_ID = 'user-loc-keyframe';
+function InjectUserLocStyle() {
+  useEffect(() => {
+    if (document.getElementById(USER_LOC_STYLE_ID)) return;
+    const s = document.createElement('style');
+    s.id = USER_LOC_STYLE_ID;
+    s.textContent = `@keyframes user-loc-pulse{0%{transform:scale(0.5);opacity:0.8}80%{transform:scale(2.4);opacity:0}100%{transform:scale(2.4);opacity:0}}`;
+    document.head.appendChild(s);
+  }, []);
+  return null;
+}
+
+// User location marker
+function UserLocationMarker({ position }) {
+  if (!position) return null;
   return (
-    <div className="absolute bottom-8 right-4 z-[1000] flex flex-col gap-1">
-      <button
-        onClick={() => map.zoomIn()}
-        className="w-9 h-9 bg-white/90 backdrop-blur-xl rounded-t-xl border border-slate-200 shadow-lg flex items-center justify-center text-slate-700 hover:bg-white hover:text-slate-900 transition-all text-xl font-bold leading-none select-none"
-        aria-label="Zoom in"
-      >
-        +
-      </button>
-      <button
-        onClick={() => map.zoomOut()}
-        className="w-9 h-9 bg-white/90 backdrop-blur-xl rounded-b-xl border-x border-b border-slate-200 shadow-lg flex items-center justify-center text-slate-700 hover:bg-white hover:text-slate-900 transition-all text-2xl font-bold leading-none select-none"
-        aria-label="Zoom out"
-      >
-        −
-      </button>
-    </div>
+    <Marker position={[position.lat, position.lng]} icon={USER_LOCATION_ICON} zIndexOffset={1000}>
+      <Popup maxWidth={200} className="aed-popup">
+        <div className="p-1">
+          <p className="font-bold text-sm text-slate-900 mb-1">ตำแหน่งของคุณ</p>
+          {position.accuracy && (
+            <p className="text-xs text-slate-500">ความแม่นยำ ±{Math.round(position.accuracy)} เมตร</p>
+          )}
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
+// Combined zoom + locate controls
+function MapControls({ onLocate }) {
+  const map = useMap();
+  const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState(false);
+
+  const handleLocate = () => {
+    if (!navigator.geolocation) {
+      setGeoError(true);
+      setTimeout(() => setGeoError(false), 3000);
+      return;
+    }
+    setLocating(true);
+    setGeoError(false);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+        onLocate({ lat, lng, accuracy });
+        map.flyTo([lat, lng], 16, { duration: 1.5 });
+        setLocating(false);
+      },
+      () => {
+        setLocating(false);
+        setGeoError(true);
+        setTimeout(() => setGeoError(false), 3000);
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  };
+
+  return (
+    <>
+      {geoError && (
+        <div className="absolute bottom-[200px] right-4 z-[1000] bg-red-500/90 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-xl shadow-lg whitespace-nowrap">
+          ไม่สามารถระบุตำแหน่งได้
+        </div>
+      )}
+      <div className="absolute bottom-8 right-4 z-[1000] flex flex-col gap-1">
+        <button
+          onClick={handleLocate}
+          disabled={locating}
+          className="w-9 h-9 bg-white/90 backdrop-blur-xl rounded-xl border border-slate-200 shadow-lg flex items-center justify-center text-sky-600 hover:bg-sky-50 hover:text-sky-700 transition-all disabled:opacity-60 select-none"
+          title="แสดงตำแหน่งของฉัน"
+          aria-label="แสดงตำแหน่งของฉัน"
+        >
+          {locating ? (
+            <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Navigation className="w-4 h-4" />
+          )}
+        </button>
+        <button
+          onClick={() => map.zoomIn()}
+          className="w-9 h-9 bg-white/90 backdrop-blur-xl rounded-t-xl border border-slate-200 shadow-lg flex items-center justify-center text-slate-700 hover:bg-white hover:text-slate-900 transition-all text-xl font-bold leading-none select-none mt-1"
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+        <button
+          onClick={() => map.zoomOut()}
+          className="w-9 h-9 bg-white/90 backdrop-blur-xl rounded-b-xl border-x border-b border-slate-200 shadow-lg flex items-center justify-center text-slate-700 hover:bg-white hover:text-slate-900 transition-all text-2xl font-bold leading-none select-none"
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -171,6 +273,7 @@ export default function MapView({
   aedPoints = [],
   pickCoords = false,
   onPickCoords = null,
+  onReportAED = null,
   selectedId = null,
   tileKey = 'street',
   showDistricts = true,
@@ -179,6 +282,7 @@ export default function MapView({
   const [districtData, setDistrictData] = useState(null);
   const [tambonData, setTambonData] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -220,6 +324,7 @@ export default function MapView({
         zoomControl={false}
       >
         <TileLayerSwitcher tileKey={tileKey} />
+        <InjectUserLocStyle />
 
         {selectedId && (
           <FlyToSelected facilities={facilities} aedPoints={aedPoints} selectedId={selectedId} />
@@ -365,6 +470,18 @@ export default function MapView({
                   </svg>
                   นำทาง
                 </a>
+                {onReportAED && (
+                  <button
+                    type="button"
+                    onClick={() => onReportAED(f)}
+                    className="mt-2 flex items-center justify-center gap-2 w-full py-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    แจ้งปัญหา / ของเสียหาย
+                  </button>
+                )}
               </div>
             </Popup>
           </Marker>
@@ -372,7 +489,8 @@ export default function MapView({
 
         {pickCoords && <ClickMarker onPick={onPickCoords} active={pickCoords} />}
 
-        <ZoomControl />
+        <UserLocationMarker position={userLocation} />
+        <MapControls onLocate={setUserLocation} />
       </MapContainer>
 
       {/* Stats badge */}

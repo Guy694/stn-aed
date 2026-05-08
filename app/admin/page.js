@@ -9,7 +9,8 @@ import AEDPointModal from '@/app/components/AEDPointModal';
 import {
   Plus, Pencil, Trash2, Search, X, Heart, Activity, MapPin,
   RefreshCw, AlertCircle, CheckCircle, ChevronDown, ChevronUp,
-  Zap, Building2, AlertTriangle,
+  Zap, Building2, AlertTriangle, Bell, Clock, CheckCircle2, Wrench,
+  BatteryLow, PackageSearch, HelpCircle,
 } from 'lucide-react';
 
 const COORD_SOURCE_BADGE = {
@@ -18,6 +19,14 @@ const COORD_SOURCE_BADGE = {
   tambon_centroid:{ label: 'ศูนย์กลางตำบล',      cls: 'bg-amber-50 text-amber-700 border-amber-200' },
   manual:         { label: 'แก้ไขแล้ว',           cls: 'bg-purple-50 text-purple-700 border-purple-200' },
   unknown:        { label: 'ไม่ทราบ',              cls: 'bg-red-50 text-red-700 border-red-200' },
+};
+
+const REPORT_TYPE_CONFIG = {
+  damaged:     { label: 'เครื่องชำรุด/เสียหาย',    icon: AlertTriangle, cls: 'bg-red-50 border-red-200 text-red-700' },
+  maintenance: { label: 'ต้องการบำรุงรักษา',        icon: Wrench,        cls: 'bg-amber-50 border-amber-200 text-amber-700' },
+  battery:     { label: 'แบตเตอรี่หมด/ใกล้หมด',    icon: BatteryLow,    cls: 'bg-orange-50 border-orange-200 text-orange-700' },
+  missing:     { label: 'เครื่องหาย/สูญหาย',        icon: PackageSearch, cls: 'bg-rose-50 border-rose-200 text-rose-700' },
+  other:       { label: 'อื่นๆ',                     icon: HelpCircle,    cls: 'bg-slate-50 border-slate-200 text-slate-600' },
 };
 
 const MapView = dynamic(() => import('@/app/components/MapView'), { ssr: false });
@@ -42,6 +51,13 @@ export default function AdminPage() {
   const [aedSortBy, setAedSortBy] = useState('id');
   const [aedSortDir, setAedSortDir] = useState('asc');
   const [aedModal, setAedModal] = useState({ open: false, aed: null });
+  const [aedDeleteConfirm, setAedDeleteConfirm] = useState(null);
+  const [aedActiveTab, setAedActiveTab] = useState('table');
+
+  // Reports
+  const [reportsList, setReportsList] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportStatusUpdate, setReportStatusUpdate] = useState(null); // { id, status }
 
   useEffect(() => {
     fetch(`${BASE}/api/auth/me`)
@@ -50,7 +66,34 @@ export default function AdminPage() {
       .catch(() => {});
     loadFacilities();
     loadAedList();
+    loadReports();
   }, []);
+
+  const loadReports = async () => {
+    setReportsLoading(true);
+    try {
+      const res = await fetch(`${BASE}/api/reports`);
+      const data = await res.json();
+      if (Array.isArray(data)) setReportsList(data);
+    } catch {}
+    setReportsLoading(false);
+  };
+
+  const handleReportStatus = async (reportId, newStatus) => {
+    const res = await fetch(`${BASE}/api/reports/${reportId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setReportsList((prev) => prev.map((r) => r.id === reportId ? updated : r));
+      showToast('อัปเดตสถานะรายงานสำเร็จ');
+    } else {
+      showToast('เกิดข้อผิดพลาด', 'error');
+    }
+    setReportStatusUpdate(null);
+  };
 
   const loadAedList = async () => {
     setAedLoading(true);
@@ -68,10 +111,21 @@ export default function AdminPage() {
         next[idx] = saved;
         return next;
       }
-      return prev;
+      return [saved, ...prev];
     });
     setAedModal({ open: false, aed: null });
-    showToast('บันทึกข้อมูล AED สำเร็จ');
+    showToast(aedModal.aed?.id ? 'แก้ไขข้อมูล AED สำเร็จ' : 'เพิ่มจุดบริการ AED สำเร็จ');
+  };
+
+  const handleAedDelete = async (id) => {
+    const res = await fetch(`${BASE}/api/aed/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setAedList((prev) => prev.filter((a) => a.id !== id));
+      showToast('ลบจุดบริการ AED สำเร็จ', 'success');
+    } else {
+      showToast('เกิดข้อผิดพลาดในการลบ', 'error');
+    }
+    setAedDeleteConfirm(null);
   };
 
   const toggleAedSort = (col) => {
@@ -198,7 +252,7 @@ export default function AdminPage() {
                   เพิ่มหน่วยบริการ
                 </button>
               </div>
-            ) : (
+            ) : dataSource === 'aed' ? (
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-50 border border-sky-100">
                   <Zap className="w-4 h-4 text-sky-600" />
@@ -218,6 +272,30 @@ export default function AdminPage() {
                   title="รีเฟรชข้อมูล"
                 >
                   <RefreshCw className={`w-4 h-4 ${aedLoading ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setAedModal({ open: true, aed: null })}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-400 hover:to-sky-500 transition-all shadow-lg"
+                >
+                  <Plus className="w-4 h-4" />
+                  เพิ่ม AED
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 border border-amber-100">
+                  <Bell className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-semibold text-amber-600">
+                    {reportsList.filter((r) => r.status === 'pending').length}
+                  </span>
+                  <span className="text-xs text-slate-600">รอดำเนินการ</span>
+                </div>
+                <button
+                  onClick={loadReports}
+                  className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all shadow-sm"
+                  title="รีเฟรชข้อมูล"
+                >
+                  <RefreshCw className={`w-4 h-4 ${reportsLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
             )}
@@ -249,6 +327,22 @@ export default function AdminPage() {
               {noCoordCount > 0 && (
                 <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
                   {noCoordCount > 9 ? '9+' : noCoordCount}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setDataSource('reports')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                dataSource === 'reports'
+                  ? 'bg-white text-amber-700 shadow-sm border border-amber-100'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              แจ้งปัญหา AED
+              {reportsList.filter((r) => r.status === 'pending').length > 0 && (
+                <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {reportsList.filter((r) => r.status === 'pending').length > 9 ? '9+' : reportsList.filter((r) => r.status === 'pending').length}
                 </span>
               )}
             </button>
@@ -443,9 +537,26 @@ export default function AdminPage() {
                   แสดง {filteredAed.length} / {aedList.length} รายการ
                 </span>
               )}
+
+              {/* Tab toggle */}
+              <div className="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-sm ml-auto">
+                <button
+                  onClick={() => setAedActiveTab('table')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${aedActiveTab === 'table' ? 'bg-sky-500 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
+                >
+                  ตาราง
+                </button>
+                <button
+                  onClick={() => setAedActiveTab('map')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${aedActiveTab === 'map' ? 'bg-sky-500 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
+                >
+                  แผนที่
+                </button>
+              </div>
             </div>
 
             {/* AED Table */}
+            {aedActiveTab === 'table' && (
             <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
               {aedLoading ? (
                 <div className="flex items-center justify-center py-20">
@@ -550,13 +661,20 @@ export default function AdminPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <div className="flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                   onClick={() => setAedModal({ open: true, aed: a })}
                                   className="w-7 h-7 rounded-lg bg-sky-50 hover:bg-sky-100 flex items-center justify-center text-sky-600 transition-all border border-sky-100"
-                                  title="แก้ไขพิกัด"
+                                  title="แก้ไข"
                                 >
                                   <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setAedDeleteConfirm(a)}
+                                  className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-600 transition-all border border-red-100"
+                                  title="ลบ"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </td>
@@ -568,6 +686,118 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+            )}
+
+            {/* AED Map */}
+            {aedActiveTab === 'map' && (
+              <div className="h-[calc(100vh-300px)] min-h-[500px]">
+                <MapView aedPoints={filteredAed} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Reports section ─── */}
+        {dataSource === 'reports' && (
+          <div className="space-y-4">
+            {reportsLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-10 h-10 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-slate-500 text-sm">กำลังโหลด...</p>
+                </div>
+              </div>
+            ) : reportsList.length === 0 ? (
+              <div className="flex flex-col items-center py-20 gap-3 text-slate-400">
+                <Bell className="w-10 h-10" />
+                <p>ยังไม่มีรายงานปัญหา</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reportsList.map((r) => {
+                  const statusCfg = {
+                    pending:     { label: 'รอดำเนินการ', cls: 'bg-red-50 text-red-700 border-red-200',     icon: Clock },
+                    in_progress: { label: 'กำลังดำเนินการ', cls: 'bg-amber-50 text-amber-700 border-amber-200', icon: Wrench },
+                    resolved:    { label: 'แก้ไขแล้ว',    cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
+                  }[r.status] || { label: r.status, cls: 'bg-slate-50 text-slate-600 border-slate-200', icon: Clock };
+                  const StatusIcon = statusCfg.icon;
+
+                  return (
+                    <div key={r.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${statusCfg.cls}`}>
+                              <StatusIcon className="w-3.5 h-3.5" />
+                              {statusCfg.label}
+                            </span>
+                            {(() => {
+                              const tc = REPORT_TYPE_CONFIG[r.report_type];
+                              const TypeIcon = tc?.icon;
+                              return tc ? (
+                                <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${tc.cls}`}>
+                                  <TypeIcon className="w-3.5 h-3.5" />
+                                  {tc.label}
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-xs">{r.report_type}</span>
+                              );
+                            })()}
+                            <span className="text-xs text-slate-400">
+                              #{r.id} · {new Date(r.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-900 text-sm">{r.location_name}</p>
+                            {r.district_name && <p className="text-xs text-slate-500">อำเภอ {r.district_name}</p>}
+                          </div>
+                          {r.description && (
+                            <p className="text-sm text-slate-600 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                              {r.description}
+                            </p>
+                          )}
+                          {(r.reporter_name || r.reporter_phone) && (
+                            <p className="text-xs text-slate-500">
+                              ผู้แจ้ง: {r.reporter_name || '-'}{r.reporter_phone ? ` (${r.reporter_phone})` : ''}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Status action buttons */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {r.status !== 'in_progress' && r.status !== 'resolved' && (
+                            <button
+                              onClick={() => handleReportStatus(r.id, 'in_progress')}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition-all"
+                            >
+                              <Wrench className="w-3.5 h-3.5" />
+                              รับเรื่อง
+                            </button>
+                          )}
+                          {r.status !== 'resolved' && (
+                            <button
+                              onClick={() => handleReportStatus(r.id, 'resolved')}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition-all"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              แก้ไขแล้ว
+                            </button>
+                          )}
+                          {r.status === 'resolved' && (
+                            <button
+                              onClick={() => handleReportStatus(r.id, 'pending')}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-100 transition-all"
+                            >
+                              เปิดใหม่
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -589,6 +819,41 @@ export default function AdminPage() {
           onClose={() => setModal({ open: false, facility: null })}
           onSave={handleSave}
         />
+      )}
+
+      {/* AED delete confirm dialog */}
+      {aedDeleteConfirm && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setAedDeleteConfirm(null)} />
+          <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center border border-red-100">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">ยืนยันการลบ AED</h3>
+                <p className="text-sm text-slate-500 mt-0.5">การดำเนินการนี้ไม่สามารถย้อนกลับได้</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-6 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              คุณต้องการลบ &quot;<strong className="text-slate-900">{aedDeleteConfirm.location_name}</strong>&quot; ใช่ไหม?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setAedDeleteConfirm(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all border border-slate-200"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => handleAedDelete(aedDeleteConfirm.id)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-500 hover:bg-red-600 text-white transition-all"
+              >
+                ลบข้อมูล
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete confirm dialog */}

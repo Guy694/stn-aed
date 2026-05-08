@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: 'ระบบจัดการเครื่อง AED จังหวัดสตูล',
+  title: 'ระบบติดตามจุดบริการเครื่องกู้ชีพ AED สตูล',
   description: 'ระบบบริหารจัดการและแสดงจุดบริการเครื่อง Automated External Defibrillator (AED) จังหวัดสตูล',
   keywords: 'AED, สตูล, เครื่องกู้ชีพ, สาธารณสุข',
 };
