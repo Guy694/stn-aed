@@ -1,10 +1,11 @@
 'use client';
 import { useState } from 'react';
+import Image from 'next/image';
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MapPin, BarChart2, LayoutDashboard, LogIn, LogOut, Menu, X, Heart, Shield, AlertTriangle } from 'lucide-react';
+import { MapPin, BarChart2, LayoutDashboard, LogIn, LogOut, Menu, X, Heart, Shield, AlertTriangle, LayoutGrid } from 'lucide-react';
 
 export default function Navbar({ user }) {
   const pathname = usePathname();
@@ -17,6 +18,12 @@ export default function Navbar({ user }) {
     router.refresh();
   };
 
+  const canUseModule = (key) => {
+    if (!user) return true;
+    if (user.role === 'admin') return true;
+    return user.modulePermissions?.[key] !== false;
+  };
+
   const isActive = (path) => pathname.startsWith(path);
 
   return (
@@ -26,7 +33,7 @@ export default function Navbar({ user }) {
           {/* Logo */}
           <Link href="/map" className="flex items-center gap-2.5 group">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-             <img src={`${BASE}/img/logo.png`} alt="AED Icon" className="w-10 h-10" />
+             <Image src={`${BASE}/img/logo.png`} alt="AED Icon" width={40} height={40} className="w-10 h-10" />
             </div>
             <div className="hidden sm:block">
               <p className="text-sm font-bold text-slate-900 leading-tight">ระบบติดตามจุดบริการเครื่องกู้ชีพ AED สตูล</p>
@@ -36,6 +43,21 @@ export default function Navbar({ user }) {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
+            {user && user.role !== 'admin' && (
+              <Link
+                href="/staff"
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  isActive('/staff')
+                    ? 'bg-sky-500/20 text-sky-600 border border-sky-500/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+                โมดูลของฉัน
+              </Link>
+            )}
+
+            {canUseModule('map') && (
             <Link
               href="/map"
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
@@ -47,7 +69,9 @@ export default function Navbar({ user }) {
               <MapPin className="w-4 h-4" />
               แผนที่ AED
             </Link>
+            )}
 
+            {canUseModule('dashboard') && (
             <Link
               href="/dashboard"
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
@@ -59,8 +83,9 @@ export default function Navbar({ user }) {
               <BarChart2 className="w-4 h-4" />
               Dashboard
             </Link>
+            )}
 
-            {user && user.role !== 'admin' && (
+            {user && user.role !== 'admin' && canUseModule('my_reports') && (
               <Link
                 href="/my-reports"
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
@@ -70,7 +95,7 @@ export default function Navbar({ user }) {
                 }`}
               >
                 <AlertTriangle className="w-4 h-4" />
-                แจ้รายงาน AED
+                แจ้งรายงาน AED
               </Link>
             )}
 
@@ -128,6 +153,18 @@ export default function Navbar({ user }) {
         {/* Mobile menu */}
         {menuOpen && (
           <div className="md:hidden pb-4 space-y-1 border-t border-slate-200 pt-3">
+            {user && user.role !== 'admin' && (
+              <Link
+                href="/staff"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
+              >
+                <LayoutGrid className="w-4 h-4" />
+                โมดูลของฉัน
+              </Link>
+            )}
+
+            {canUseModule('map') && (
             <Link
               href="/map"
               onClick={() => setMenuOpen(false)}
@@ -136,6 +173,9 @@ export default function Navbar({ user }) {
               <MapPin className="w-4 h-4" />
               แผนที่ AED
             </Link>
+            )}
+
+            {canUseModule('dashboard') && (
             <Link
               href="/dashboard"
               onClick={() => setMenuOpen(false)}
@@ -144,14 +184,15 @@ export default function Navbar({ user }) {
               <BarChart2 className="w-4 h-4" />
               Dashboard
             </Link>
-            {user && user.role !== 'admin' && (
+            )}
+            {user && user.role !== 'admin' && canUseModule('my_reports') && (
               <Link
                 href="/my-reports"
                 onClick={() => setMenuOpen(false)}
                 className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-all"
               >
                 <AlertTriangle className="w-4 h-4" />
-                แจ้รายงาน AED
+                แจ้งรายงาน AED
               </Link>
             )}
             {user && user.role === 'admin' && (

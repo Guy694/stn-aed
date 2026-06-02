@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
@@ -70,9 +71,11 @@ export default function SplashScreen() {
             className="w-32 h-32 rounded-3xl bg-gradient-to-br from-sky-500 to-emerald-500 shadow-2xl flex items-center justify-center"
             style={{ animation: 'logo-pop 0.7s cubic-bezier(.34,1.56,.64,1) 0.1s both' }}
           >
-            <img
+            <Image
               src={`${BASE}/img/logo.png`}
               alt="AED Satun Logo"
+              width={80}
+              height={80}
               className="w-20 h-20 object-contain drop-shadow-lg"
             />
           </div>
@@ -150,4 +153,3 @@ export default function SplashScreen() {
     </div>
   );
 }
-

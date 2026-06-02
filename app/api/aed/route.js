@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
-import { getSession } from '@/app/lib/session';
+import { requireAdmin } from '@/app/lib/auth-guards';
+import { writeAuditLog } from '@/app/lib/audit-log';
+import { validateAedPayload, ValidationError, validationResponse } from '@/app/lib/validators';
 
 const SELECT_COLS = `id, seq_no, location_name, manager_name,
   aed_affiliation AS manager_typecode,
@@ -23,39 +25,39 @@ export async function GET() {
 
 // POST /api/aed — create new AED record
 export async function POST(request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, response } = await requireAdmin();
+  if (response) return response;
+
   try {
-    const body = await request.json();
-    const { location_name, district_name, aed_affiliation, quantity, manager_name, manager_phone, lat, lon, is_active } = body;
-
-    if (!location_name?.trim()) {
-      return NextResponse.json({ error: 'กรุณาระบุชื่อจุดบริการ' }, { status: 400 });
-    }
-
-    const latVal = lat !== undefined && lat !== '' && lat !== null ? parseFloat(lat) : null;
-    const lonVal = lon !== undefined && lon !== '' && lon !== null ? parseFloat(lon) : null;
+    const payload = validateAedPayload(await request.json());
 
     const result = await query(
       `INSERT INTO aed (location_name, district_name, aed_affiliation, quantity, manager_name, manager_phone, lat, lon, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       [
-        location_name.trim(),
-        district_name || null,
-        aed_affiliation || null,
-        quantity ? parseInt(quantity) : 1,
-        manager_name || null,
-        manager_phone || null,
-        latVal, lonVal,
-        is_active ? 1 : 0,
+        payload.location_name,
+        payload.district_name,
+        payload.aed_affiliation,
+        payload.quantity,
+        payload.manager_name,
+        payload.manager_phone,
+        payload.lat, payload.lon,
+        payload.is_active,
       ]
     );
 
     const rows = await query(`SELECT ${SELECT_COLS} FROM aed WHERE id = ?`, [result.insertId]);
+    await writeAuditLog({
+      session,
+      action: 'create',
+      entityType: 'aed',
+      entityId: result.insertId,
+      summary: `เพิ่มจุด AED ${payload.location_name}`,
+      metadata: { district_name: payload.district_name, quantity: payload.quantity },
+    });
     return NextResponse.json(rows[0], { status: 201 });
   } catch (error) {
+    if (error instanceof ValidationError) return validationResponse(error);
     console.error('Create AED error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
   }

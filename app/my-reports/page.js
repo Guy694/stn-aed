@@ -38,13 +38,7 @@ export default function MyReportsPage() {
 
   const [activeTab, setActiveTab] = useState('report'); // 'report' | 'history'
 
-  useEffect(() => {
-    fetch(`${BASE}/api/auth/me`).then((r) => r.ok ? r.json() : null).then(setUser);
-    loadAed();
-    loadReports();
-  }, []);
-
-  const loadAed = async () => {
+  async function loadAed() {
     setAedLoading(true);
     try {
       const res = await fetch(`${BASE}/api/aed`);
@@ -52,9 +46,9 @@ export default function MyReportsPage() {
       if (Array.isArray(data)) setAedList(data);
     } catch {}
     setAedLoading(false);
-  };
+  }
 
-  const loadReports = async () => {
+  async function loadReports() {
     setReportsLoading(true);
     try {
       const res = await fetch(`${BASE}/api/reports`);
@@ -64,7 +58,15 @@ export default function MyReportsPage() {
       }
     } catch {}
     setReportsLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetch(`${BASE}/api/auth/me`).then((r) => r.ok ? r.json() : null).then(setUser);
+    queueMicrotask(() => {
+      loadAed();
+      loadReports();
+    });
+  }, []);
 
   const filteredAed = useMemo(() =>
     aedList.filter((a) =>

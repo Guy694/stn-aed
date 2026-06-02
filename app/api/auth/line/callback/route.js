@@ -86,7 +86,8 @@ export async function GET(request) {
       role: user.role,
     });
 
-    const dest = user.role === 'admin' ? '/stn-aed/admin/' : '/stn-aed/my-reports';
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    const dest = `${basePath}${user.role === 'admin' ? '/admin/' : '/staff'}`;
     return NextResponse.redirect(new URL(dest, request.url));
   } catch (err) {
     console.error('LINE callback error:', err);

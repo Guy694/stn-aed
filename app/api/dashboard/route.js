@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
+import { requireModuleAccess } from '@/app/lib/auth-guards';
 
 export async function GET() {
+  const { response } = await requireModuleAccess('dashboard');
+  if (response) return response;
+
   try {
     const [
       aedByDistrict,
@@ -13,6 +17,8 @@ export async function GET() {
       facByDistrict,
       aedMissingCoords,
       totalStats,
+      dentalByDistrict,
+      hsByDistrict,
     ] = await Promise.all([
       // AED count by district
       query(`SELECT district_name AS name, COUNT(*) AS total, SUM(status) AS active
@@ -48,7 +54,23 @@ export async function GET() {
                (SELECT SUM(status) FROM aed) AS aed_active,
                (SELECT COUNT(*) FROM aed WHERE lat IS NULL) AS aed_no_coords,
                (SELECT COUNT(*) FROM health_facilities) AS fac_total,
-               (SELECT SUM(is_active) FROM health_facilities) AS fac_active`),
+               (SELECT SUM(is_active) FROM health_facilities) AS fac_active,
+               (SELECT COUNT(*) FROM dental_units) AS dental_total,
+               (SELECT COUNT(*) FROM dental_units WHERE status = 1) AS dental_active,
+               (SELECT COALESCE(SUM(dental_unit_count),0) FROM dental_units) AS dental_units_total,
+               (SELECT COALESCE(SUM(ready_unit_count),0) FROM dental_units) AS dental_units_ready,
+               (SELECT COUNT(*) FROM health_stations) AS hs_total,
+               (SELECT COUNT(*) FROM health_stations WHERE is_open = 1) AS hs_open,
+               (SELECT COUNT(*) FROM health_stations WHERE has_aom_assigned = 1) AS hs_aom`),
+      // Dental count by district
+      query(`SELECT district_name AS name, COUNT(*) AS total,
+               COALESCE(SUM(dental_unit_count),0) AS unit_count,
+               COALESCE(SUM(ready_unit_count),0) AS ready_count
+             FROM dental_units GROUP BY district_name ORDER BY total DESC`),
+      // Health station count by district
+      query(`SELECT district_name AS name, COUNT(*) AS total,
+               SUM(is_open) AS open_count
+             FROM health_stations GROUP BY district_name ORDER BY total DESC`),
     ]);
 
     return NextResponse.json({
@@ -63,6 +85,8 @@ export async function GET() {
       facByDistrict,
       aedMissingCoords: aedMissingCoords[0],
       totalStats: totalStats[0],
+      dentalByDistrict,
+      hsByDistrict,
     });
   } catch (error) {
     console.error('Dashboard error:', error);

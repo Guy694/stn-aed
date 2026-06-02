@@ -1,4 +1,5 @@
 import "./globals.css";
+import VisitorCounterBadge from '@/components/VisitorCounterBadge';
 
 export const metadata = {
   title: 'ระบบติดตามจุดบริการเครื่องกู้ชีพ AED สตูล',
@@ -11,6 +12,7 @@ export default function RootLayout({ children }) {
     <html lang="th" className="h-full">
       <body className="min-h-full flex flex-col antialiased">
         {children}
+        <VisitorCounterBadge />
       </body>
     </html>
   );

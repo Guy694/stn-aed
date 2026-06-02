@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
-import { getSession } from '@/app/lib/session';
+import { requireAdmin } from '@/app/lib/auth-guards';
+import { writeAuditLog } from '@/app/lib/audit-log';
 
 const VALID_STATUSES = ['pending', 'in_progress', 'resolved'];
 
 // PATCH /api/reports/[id] — admin: update report status / admin note
 export async function PATCH(request, { params }) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, response } = await requireAdmin();
+  if (response) return response;
+
   try {
     const { id } = await params;
     const reportId = parseInt(id, 10);
@@ -46,6 +46,15 @@ export async function PATCH(request, { params }) {
       FROM aed_reports r JOIN aed a ON a.id = r.aed_id
       WHERE r.id = ?
     `, [reportId]);
+
+    await writeAuditLog({
+      session,
+      action: 'update_status',
+      entityType: 'aed_report',
+      entityId: reportId,
+      summary: `อัปเดตรายงาน AED เป็น ${status || 'unchanged'}`,
+      metadata: { status: status || null, has_admin_note: admin_note !== undefined },
+    });
 
     return NextResponse.json(updated);
   } catch (error) {

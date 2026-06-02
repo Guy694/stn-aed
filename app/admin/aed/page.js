@@ -1,0 +1,616 @@
+'use client';
+import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+
+const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import Navbar from '@/app/components/Navbar';
+import AEDModal from '@/app/components/AEDModal';
+import AEDPointModal from '@/app/components/AEDPointModal';
+import {
+  Plus, Pencil, Trash2, Search, X, Heart, MapPin,
+  RefreshCw, AlertCircle, CheckCircle, ChevronDown, ChevronUp,
+  Zap, Building2, AlertTriangle, Bell, Clock, CheckCircle2, Wrench,
+  BatteryLow, PackageSearch, HelpCircle,
+} from 'lucide-react';
+
+const COORD_SOURCE_BADGE = {
+  sheet_exact:    { label: 'พิกัดชัดเจน',        cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  facility_match: { label: 'จับคู่หน่วยบริการ',  cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+  tambon_centroid:{ label: 'ศูนย์กลางตำบล',      cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  manual:         { label: 'แก้ไขแล้ว',           cls: 'bg-purple-50 text-purple-700 border-purple-200' },
+  unknown:        { label: 'ไม่ทราบ',              cls: 'bg-red-50 text-red-700 border-red-200' },
+};
+
+const REPORT_TYPE_CONFIG = {
+  damaged:     { label: 'เครื่องชำรุด/เสียหาย',    icon: AlertTriangle, cls: 'bg-red-50 border-red-200 text-red-700' },
+  maintenance: { label: 'ต้องการบำรุงรักษา',        icon: Wrench,        cls: 'bg-amber-50 border-amber-200 text-amber-700' },
+  battery:     { label: 'แบตเตอรี่หมด/ใกล้หมด',    icon: BatteryLow,    cls: 'bg-orange-50 border-orange-200 text-orange-700' },
+  missing:     { label: 'เครื่องหาย/สูญหาย',        icon: PackageSearch, cls: 'bg-rose-50 border-rose-200 text-rose-700' },
+  other:       { label: 'อื่นๆ',                     icon: HelpCircle,    cls: 'bg-slate-50 border-slate-200 text-slate-600' },
+};
+
+const MapView = dynamic(() => import('@/app/components/MapView'), { ssr: false });
+
+export default function AdminAedPage() {
+  const searchParams = useSearchParams();
+  const [user, setUser] = useState(null);
+  const [subTab, setSubTab] = useState(() => {
+    const requestedTab = searchParams.get('tab');
+    return requestedTab === 'facilities' || requestedTab === 'aed' || requestedTab === 'reports'
+      ? requestedTab
+      : 'facilities';
+  }); // 'facilities' | 'aed' | 'reports'
+
+  // Health Facilities
+  const [facilities, setFacilities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('id');
+  const [sortDir, setSortDir] = useState('asc');
+  const [modal, setModal] = useState({ open: false, facility: null });
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [activeTab, setActiveTab] = useState('table');
+
+  // AED Points
+  const [aedList, setAedList] = useState([]);
+  const [aedLoading, setAedLoading] = useState(false);
+  const [aedSearch, setAedSearch] = useState('');
+  const [aedSortBy, setAedSortBy] = useState('id');
+  const [aedSortDir, setAedSortDir] = useState('asc');
+  const [aedModal, setAedModal] = useState({ open: false, aed: null });
+  const [aedDeleteConfirm, setAedDeleteConfirm] = useState(null);
+  const [aedActiveTab, setAedActiveTab] = useState('table');
+
+  // Reports
+  const [reportsList, setReportsList] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+
+  // Toast
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  // ── Facilities ──────────────────────────────────────
+  async function loadFacilities() {
+    setLoading(true);
+    const res = await fetch(`${BASE}/api/facilities`);
+    const data = await res.json();
+    if (Array.isArray(data)) setFacilities(data);
+    setLoading(false);
+  }
+
+  const handleSave = (saved) => {
+    setFacilities((prev) => {
+      const idx = prev.findIndex((f) => f.id === saved.id);
+      if (idx >= 0) { const next = [...prev]; next[idx] = saved; return next; }
+      return [...prev, saved];
+    });
+    setModal({ open: false, facility: null });
+    showToast(modal.facility?.id ? 'แก้ไขข้อมูลสำเร็จ' : 'เพิ่มจุด AED สำเร็จ');
+  };
+
+  const handleDelete = async (id) => {
+    const res = await fetch(`${BASE}/api/facilities/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setFacilities((prev) => prev.filter((f) => f.id !== id));
+      showToast('ลบข้อมูลสำเร็จ', 'success');
+    } else {
+      showToast('เกิดข้อผิดพลาดในการลบ', 'error');
+    }
+    setDeleteConfirm(null);
+  };
+
+  const toggleSort = (col) => {
+    if (sortBy === col) setSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(col); setSortDir('asc'); }
+  };
+
+  const filtered = facilities
+    .filter((f) =>
+      !search ||
+      f.name?.toLowerCase().includes(search.toLowerCase()) ||
+      f.district_name?.toLowerCase().includes(search.toLowerCase()) ||
+      f.tambon?.toLowerCase().includes(search.toLowerCase()) ||
+      f.typecode?.toLowerCase().includes(search.toLowerCase())
+    )
+    .sort((a, b) => {
+      const av = a[sortBy] ?? ''; const bv = b[sortBy] ?? '';
+      const cmp = String(av).localeCompare(String(bv), 'th');
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+
+  const SortIcon = ({ col }) => {
+    if (sortBy !== col) return <ChevronDown className="w-3 h-3 opacity-30" />;
+    return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-sky-400" /> : <ChevronDown className="w-3 h-3 text-sky-400" />;
+  };
+
+  // ── AED Points ──────────────────────────────────────
+  async function loadAedList() {
+    setAedLoading(true);
+    const res = await fetch(`${BASE}/api/aed`);
+    const data = await res.json();
+    if (Array.isArray(data)) setAedList(data);
+    setAedLoading(false);
+  }
+
+  const handleAedSave = (saved) => {
+    setAedList((prev) => {
+      const idx = prev.findIndex((a) => a.id === saved.id);
+      if (idx >= 0) { const next = [...prev]; next[idx] = saved; return next; }
+      return [saved, ...prev];
+    });
+    setAedModal({ open: false, aed: null });
+    showToast(aedModal.aed?.id ? 'แก้ไขข้อมูล AED สำเร็จ' : 'เพิ่มจุดบริการ AED สำเร็จ');
+  };
+
+  const handleAedDelete = async (id) => {
+    const res = await fetch(`${BASE}/api/aed/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setAedList((prev) => prev.filter((a) => a.id !== id));
+      showToast('ลบจุดบริการ AED สำเร็จ', 'success');
+    } else {
+      showToast('เกิดข้อผิดพลาดในการลบ', 'error');
+    }
+    setAedDeleteConfirm(null);
+  };
+
+  const toggleAedSort = (col) => {
+    if (aedSortBy === col) setAedSortDir((d) => d === 'asc' ? 'desc' : 'asc');
+    else { setAedSortBy(col); setAedSortDir('asc'); }
+  };
+
+  const noCoordCount = aedList.filter((a) => a.lat == null).length;
+  const approxCoordCount = aedList.filter((a) => a.coordinate_source === 'tambon_centroid').length;
+
+  const filteredAed = aedList
+    .filter((a) =>
+      !aedSearch ||
+      a.location_name?.toLowerCase().includes(aedSearch.toLowerCase()) ||
+      a.district_name?.toLowerCase().includes(aedSearch.toLowerCase()) ||
+      a.tambon_name?.toLowerCase().includes(aedSearch.toLowerCase()) ||
+      a.manager_typecode?.toLowerCase().includes(aedSearch.toLowerCase())
+    )
+    .sort((a, b) => {
+      const av = a[aedSortBy] ?? ''; const bv = b[aedSortBy] ?? '';
+      const cmp = String(av).localeCompare(String(bv), 'th');
+      return aedSortDir === 'asc' ? cmp : -cmp;
+    });
+
+  // ── Reports ─────────────────────────────────────────
+  async function loadReports() {
+    setReportsLoading(true);
+    try {
+      const res = await fetch(`${BASE}/api/reports`);
+      const data = await res.json();
+      if (Array.isArray(data)) setReportsList(data);
+    } catch {}
+    setReportsLoading(false);
+  }
+
+  useEffect(() => {
+    fetch(`${BASE}/api/auth/me`)
+      .then((r) => r.ok ? r.json() : null)
+      .then(setUser)
+      .catch(() => {});
+    queueMicrotask(() => {
+      loadFacilities();
+      loadAedList();
+      loadReports();
+    });
+  }, []);
+
+  const handleReportStatus = async (reportId, newStatus) => {
+    const res = await fetch(`${BASE}/api/reports/${reportId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setReportsList((prev) => prev.map((r) => r.id === reportId ? updated : r));
+      showToast('อัปเดตสถานะรายงานสำเร็จ');
+    } else {
+      showToast('เกิดข้อผิดพลาด', 'error');
+    }
+  };
+
+  const pendingReports = reportsList.filter((r) => r.status === 'pending').length;
+
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-50">
+      <Navbar user={user} />
+
+      {/* Page Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex-1">
+              <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-sky-500" />
+                จัดการ AED
+              </h1>
+              <p className="text-sm text-slate-500 mt-0.5">จัดการหน่วยบริการ, จุดติดตั้ง AED และรายงานปัญหา</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {subTab === 'facilities' && (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
+                    <Building2 className="w-4 h-4 text-emerald-600" />
+                    <span className="text-sm font-semibold text-emerald-600">{facilities.length}</span>
+                    <span className="text-xs text-slate-600">หน่วยบริการ</span>
+                  </div>
+                  <button onClick={loadFacilities} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 transition-all shadow-sm" title="รีเฟรช">
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button onClick={() => setModal({ open: true, facility: null })} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-400 hover:to-teal-500 transition-all shadow-md">
+                    <Plus className="w-4 h-4" />เพิ่มหน่วยบริการ
+                  </button>
+                </>
+              )}
+              {subTab === 'aed' && (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-sky-50 border border-sky-100">
+                    <Zap className="w-4 h-4 text-sky-600" />
+                    <span className="text-sm font-semibold text-sky-600">{aedList.length}</span>
+                    <span className="text-xs text-slate-600">จุด AED</span>
+                  </div>
+                  {(noCoordCount + approxCoordCount) > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                      <span className="text-sm font-semibold text-amber-600">{noCoordCount + approxCoordCount}</span>
+                      <span className="text-xs text-slate-600">รอแก้พิกัด</span>
+                    </div>
+                  )}
+                  <button onClick={loadAedList} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 transition-all shadow-sm" title="รีเฟรช">
+                    <RefreshCw className={`w-4 h-4 ${aedLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button onClick={() => setAedModal({ open: true, aed: null })} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-400 hover:to-sky-500 transition-all shadow-md">
+                    <Plus className="w-4 h-4" />เพิ่ม AED
+                  </button>
+                </>
+              )}
+              {subTab === 'reports' && (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-100">
+                    <Bell className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm font-semibold text-amber-600">{pendingReports}</span>
+                    <span className="text-xs text-slate-600">รอดำเนินการ</span>
+                  </div>
+                  <button onClick={loadReports} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 transition-all shadow-sm" title="รีเฟรช">
+                    <RefreshCw className={`w-4 h-4 ${reportsLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Sub-tabs */}
+          <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
+            {[
+              { key: 'facilities', icon: Building2, label: 'หน่วยบริการสาธารณสุข' },
+              { key: 'aed', icon: Zap, label: 'จุดบริการ AED', badge: noCoordCount > 0 ? noCoordCount : null },
+              { key: 'reports', icon: Bell, label: 'รายงานปัญหา', badge: pendingReports > 0 ? pendingReports : null },
+            ].map(({ key, icon: Icon, label, badge }) => (
+              <button
+                key={key}
+                onClick={() => setSubTab(key)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  subTab === key ? 'bg-white text-sky-700 shadow-sm border border-sky-100' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+                {badge && (
+                  <span className="w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 px-6 py-6 space-y-4">
+
+        {/* ── Health Facilities ── */}
+        {subTab === 'facilities' && (
+          <>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ, อำเภอ, ตำบล..." className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all text-sm shadow-sm" />
+                {search && <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800"><X className="w-3.5 h-3.5" /></button>}
+              </div>
+              <div className="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-sm">
+                <button onClick={() => setActiveTab('table')} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === 'table' ? 'bg-sky-500 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>ตาราง</button>
+                <button onClick={() => setActiveTab('map')} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === 'map' ? 'bg-sky-500 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>แผนที่</button>
+              </div>
+              {search && <span className="text-xs text-slate-500">แสดง {filtered.length} / {facilities.length} รายการ</span>}
+            </div>
+
+            {activeTab === 'table' && (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                {loading ? (
+                  <div className="flex items-center justify-center py-20"><div className="w-10 h-10 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" /></div>
+                ) : filtered.length === 0 ? (
+                  <div className="flex flex-col items-center py-20 gap-3 text-slate-400"><Heart className="w-10 h-10" /><p>ยังไม่มีข้อมูล</p></div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50">
+                          {[{ key: 'id', label: '#' }, { key: 'name', label: 'ชื่อหน่วยบริการ' }, { key: 'typecode', label: 'ประเภท' }, { key: 'district_name', label: 'อำเภอ' }, { key: 'tambon', label: 'ตำบล' }, { key: 'lat', label: 'พิกัด' }, { key: 'is_active', label: 'สถานะ' }].map(({ key, label }) => (
+                            <th key={key} onClick={() => toggleSort(key)} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-slate-900 select-none">
+                              <div className="flex items-center gap-1">{label}<SortIcon col={key} /></div>
+                            </th>
+                          ))}
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">จัดการ</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filtered.map((f) => (
+                          <tr key={f.id} className="hover:bg-slate-50 transition-colors group">
+                            <td className="px-4 py-3 text-slate-400 font-mono text-xs">{f.id}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center flex-shrink-0"><Heart className="w-3.5 h-3.5 text-white" /></div>
+                                <span className="font-semibold text-slate-900 text-sm">{f.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3"><span className="px-2 py-0.5 rounded-lg bg-sky-50 text-sky-600 border border-sky-100 text-xs font-medium">{f.typecode}</span></td>
+                            <td className="px-4 py-3 text-slate-600 text-sm">{f.district_name || '-'}</td>
+                            <td className="px-4 py-3 text-slate-600 text-sm">{f.tambon || '-'}</td>
+                            <td className="px-4 py-3"><span className="font-mono text-xs text-slate-500">{parseFloat(f.lat).toFixed(4)}, {parseFloat(f.lon).toFixed(4)}</span></td>
+                            <td className="px-4 py-3">
+                              <span className={`flex items-center gap-1.5 text-xs font-medium ${f.is_active ? 'text-emerald-600' : 'text-red-600'}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${f.is_active ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                {f.is_active ? 'ใช้งาน' : 'ปิด'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => setModal({ open: true, facility: f })} className="w-7 h-7 rounded-lg bg-sky-50 hover:bg-sky-100 flex items-center justify-center text-sky-600 border border-sky-100" title="แก้ไข"><Pencil className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setDeleteConfirm(f)} className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-600 border border-red-100" title="ลบ"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'map' && (
+              <div className="h-[calc(100vh-300px)] min-h-[500px]">
+                <MapView facilities={filtered} showLayers={true} />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── AED Points ── */}
+        {subTab === 'aed' && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input type="text" value={aedSearch} onChange={(e) => setAedSearch(e.target.value)} placeholder="ค้นหาชื่อ, อำเภอ, ตำบล..." className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all text-sm shadow-sm" />
+                {aedSearch && <button onClick={() => setAedSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800"><X className="w-3.5 h-3.5" /></button>}
+              </div>
+              {aedSearch && <span className="text-xs text-slate-500">แสดง {filteredAed.length} / {aedList.length} รายการ</span>}
+              <div className="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-sm ml-auto">
+                <button onClick={() => setAedActiveTab('table')} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${aedActiveTab === 'table' ? 'bg-sky-500 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>ตาราง</button>
+                <button onClick={() => setAedActiveTab('map')} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${aedActiveTab === 'map' ? 'bg-sky-500 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>แผนที่</button>
+              </div>
+            </div>
+
+            {aedActiveTab === 'table' && (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                {aedLoading ? (
+                  <div className="flex items-center justify-center py-20"><div className="w-10 h-10 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" /></div>
+                ) : filteredAed.length === 0 ? (
+                  <div className="flex flex-col items-center py-20 gap-3 text-slate-400"><Zap className="w-10 h-10" /><p>ยังไม่มีข้อมูล</p></div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-50">
+                          {[{ key: 'id', label: '#' }, { key: 'location_name', label: 'ชื่อจุดบริการ' }, { key: 'manager_typecode', label: 'ประเภท' }, { key: 'district_name', label: 'อำเภอ' }, { key: 'tambon_name', label: 'ตำบล' }, { key: 'lat', label: 'พิกัด' }, { key: 'coordinate_source', label: 'แหล่งพิกัด' }, { key: 'is_active', label: 'สถานะ' }].map(({ key, label }) => (
+                            <th key={key} onClick={() => toggleAedSort(key)} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-slate-900 select-none">
+                              <div className="flex items-center gap-1">
+                                {label}
+                                {aedSortBy === key ? aedSortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-sky-400" /> : <ChevronDown className="w-3 h-3 text-sky-400" /> : <ChevronDown className="w-3 h-3 opacity-30" />}
+                              </div>
+                            </th>
+                          ))}
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">จัดการ</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredAed.map((a) => {
+                          const missingCoord = a.lat == null;
+                          const approxCoord = a.coordinate_source === 'tambon_centroid';
+                          return (
+                            <tr key={a.id} className={`transition-colors group ${missingCoord ? 'bg-red-50/40 hover:bg-red-50' : approxCoord ? 'bg-amber-50/30 hover:bg-amber-50/60' : 'hover:bg-slate-50'}`}>
+                              <td className="px-4 py-3 text-slate-400 font-mono text-xs">{a.id}</td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center flex-shrink-0"><Heart className="w-3.5 h-3.5 text-white" /></div>
+                                  <span className="font-semibold text-slate-900 text-sm leading-tight">{a.location_name}</span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">{a.manager_typecode && <span className="px-2 py-0.5 rounded-lg bg-sky-50 text-sky-600 border border-sky-100 text-xs font-medium">{a.manager_typecode}</span>}</td>
+                              <td className="px-4 py-3 text-slate-600 text-sm">{a.district_name || '-'}</td>
+                              <td className="px-4 py-3 text-slate-600 text-sm">{a.tambon_name || '-'}</td>
+                              <td className="px-4 py-3">
+                                {missingCoord ? (
+                                  <span className="flex items-center gap-1 text-xs text-red-500 font-medium"><AlertTriangle className="w-3 h-3" />ไม่มีพิกัด</span>
+                                ) : (
+                                  <span className="font-mono text-xs text-slate-500">{parseFloat(a.lat).toFixed(4)}, {parseFloat(a.lon).toFixed(4)}</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3">
+                                {(() => { const b = COORD_SOURCE_BADGE[a.coordinate_source]; return b ? <span className={`px-2 py-0.5 rounded-lg border text-xs font-medium ${b.cls}`}>{b.label}</span> : <span className="text-xs text-slate-400">-</span>; })()}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={`flex items-center gap-1.5 text-xs font-medium ${a.is_active ? 'text-emerald-600' : 'text-red-600'}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${a.is_active ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                                  {a.is_active ? 'ใช้งาน' : 'ปิด'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => setAedModal({ open: true, aed: a })} className="w-7 h-7 rounded-lg bg-sky-50 hover:bg-sky-100 flex items-center justify-center text-sky-600 border border-sky-100" title="แก้ไข"><Pencil className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => setAedDeleteConfirm(a)} className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-600 border border-red-100" title="ลบ"><Trash2 className="w-3.5 h-3.5" /></button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {aedActiveTab === 'map' && (
+              <div className="h-[calc(100vh-300px)] min-h-[500px]">
+                <MapView aedPoints={filteredAed} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Reports ── */}
+        {subTab === 'reports' && (
+          <div className="space-y-4">
+            {reportsLoading ? (
+              <div className="flex items-center justify-center py-20"><div className="w-10 h-10 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" /></div>
+            ) : reportsList.length === 0 ? (
+              <div className="flex flex-col items-center py-20 gap-3 text-slate-400"><Bell className="w-10 h-10" /><p>ยังไม่มีรายงานปัญหา</p></div>
+            ) : (
+              <div className="space-y-3">
+                {reportsList.map((r) => {
+                  const statusCfg = {
+                    pending:     { label: 'รอดำเนินการ',    cls: 'bg-red-50 text-red-700 border-red-200',         icon: Clock },
+                    in_progress: { label: 'กำลังดำเนินการ', cls: 'bg-amber-50 text-amber-700 border-amber-200',   icon: Wrench },
+                    resolved:    { label: 'แก้ไขแล้ว',      cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
+                  }[r.status] || { label: r.status, cls: 'bg-slate-50 text-slate-600 border-slate-200', icon: Clock };
+                  const StatusIcon = statusCfg.icon;
+
+                  return (
+                    <div key={r.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                      <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${statusCfg.cls}`}>
+                              <StatusIcon className="w-3.5 h-3.5" />{statusCfg.label}
+                            </span>
+                            {(() => {
+                              const tc = REPORT_TYPE_CONFIG[r.report_type];
+                              const TypeIcon = tc?.icon;
+                              return tc ? (
+                                <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold ${tc.cls}`}><TypeIcon className="w-3.5 h-3.5" />{tc.label}</span>
+                              ) : <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-xs">{r.report_type}</span>;
+                            })()}
+                            <span className="text-xs text-slate-400">#{r.id} · {new Date(r.created_at).toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-900 text-sm">{r.location_name}</p>
+                            {r.district_name && <p className="text-xs text-slate-500">อำเภอ {r.district_name}</p>}
+                          </div>
+                          {r.description && <p className="text-sm text-slate-600 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">{r.description}</p>}
+                          {(r.reporter_name || r.reporter_phone) && (
+                            <p className="text-xs text-slate-500">ผู้แจ้ง: {r.reporter_name || '-'}{r.reporter_phone ? ` (${r.reporter_phone})` : ''}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {r.status !== 'in_progress' && r.status !== 'resolved' && (
+                            <button onClick={() => handleReportStatus(r.id, 'in_progress')} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold hover:bg-amber-100 transition-all">
+                              <Wrench className="w-3.5 h-3.5" />รับเรื่อง
+                            </button>
+                          )}
+                          {r.status !== 'resolved' && (
+                            <button onClick={() => handleReportStatus(r.id, 'resolved')} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition-all">
+                              <CheckCircle2 className="w-3.5 h-3.5" />แก้ไขแล้ว
+                            </button>
+                          )}
+                          {r.status === 'resolved' && (
+                            <button onClick={() => handleReportStatus(r.id, 'pending')} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-xs font-medium hover:bg-slate-100 transition-all">
+                              เปิดใหม่
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Modals ── */}
+      {aedModal.open && (
+        <AEDPointModal aed={aedModal.aed} onClose={() => setAedModal({ open: false, aed: null })} onSave={handleAedSave} />
+      )}
+      {modal.open && (
+        <AEDModal facility={modal.facility} onClose={() => setModal({ open: false, facility: null })} onSave={handleSave} />
+      )}
+
+      {/* AED Delete Confirm */}
+      {aedDeleteConfirm && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setAedDeleteConfirm(null)} />
+          <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center border border-red-100"><AlertCircle className="w-5 h-5 text-red-500" /></div>
+              <div><h3 className="font-bold text-slate-900">ยืนยันการลบ AED</h3><p className="text-sm text-slate-500 mt-0.5">การดำเนินการนี้ไม่สามารถย้อนกลับได้</p></div>
+            </div>
+            <p className="text-sm text-slate-600 mb-6 p-3 rounded-xl bg-slate-50 border border-slate-200">คุณต้องการลบ &quot;<strong>{aedDeleteConfirm.location_name}</strong>&quot; ใช่ไหม?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setAedDeleteConfirm(null)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 border border-slate-200">ยกเลิก</button>
+              <button onClick={() => handleAedDelete(aedDeleteConfirm.id)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-500 hover:bg-red-600 text-white">ลบข้อมูล</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Facility Delete Confirm */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
+          <div className="relative bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 max-w-sm w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center border border-red-100"><AlertCircle className="w-5 h-5 text-red-500" /></div>
+              <div><h3 className="font-bold text-slate-900">ยืนยันการลบ</h3><p className="text-sm text-slate-500 mt-0.5">การดำเนินการนี้ไม่สามารถย้อนกลับได้</p></div>
+            </div>
+            <p className="text-sm text-slate-600 mb-6 p-3 rounded-xl bg-slate-50 border border-slate-200">คุณต้องการลบ &quot;<strong>{deleteConfirm.name}</strong>&quot; ใช่ไหม?</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 border border-slate-200">ยกเลิก</button>
+              <button onClick={() => handleDelete(deleteConfirm.id)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-red-500 hover:bg-red-600 text-white">ลบข้อมูล</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-[4000] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-medium ${toast.type === 'success' ? 'bg-emerald-500/90 border-emerald-400/30 text-white backdrop-blur-xl' : 'bg-red-500/90 border-red-400/30 text-white backdrop-blur-xl'}`}>
+          {toast.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+          {toast.message}
+        </div>
+      )}
+    </div>
+  );
+}

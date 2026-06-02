@@ -10,7 +10,7 @@ import {
 import {
   Heart, Building2, MapPin, Activity, AlertTriangle, CheckCircle,
   BarChart2, ChevronDown, RefreshCw, Home, Zap, Filter, X,
-  ArrowLeft,
+  ArrowLeft, Stethoscope, RadioTower, LayoutGrid,
 } from 'lucide-react';
 
 // ─── Colour palette ───────────────────────────────────────────
@@ -44,6 +44,9 @@ function StatCard({ icon: Icon, label, value, sub, color = 'sky', warn = false }
     red:     'from-red-500 to-rose-600',
     amber:   'from-amber-500 to-orange-500',
     violet:  'from-violet-500 to-purple-600',
+    cyan:    'from-cyan-500 to-sky-600',
+    fuchsia: 'from-fuchsia-500 to-purple-500',
+    teal:    'from-teal-500 to-emerald-600',
   }[color];
   return (
     <div className={`bg-gradient-to-br ${bg} rounded-2xl p-5 text-white shadow-xl flex items-start gap-4`}>
@@ -68,6 +71,41 @@ function ChartCard({ title, children, className = '' }) {
       <p className="text-sm font-bold text-slate-800 mb-4">{title}</p>
       {children}
     </div>
+  );
+}
+
+function SectionHeader({ id, icon: Icon, kicker, title, description, gradient }) {
+  return (
+    <div id={id} className="scroll-mt-24 flex items-center gap-3">
+      <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+        <Icon className="w-5 h-5 text-white" />
+      </div>
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{kicker}</p>
+        <h2 className="text-lg font-black text-slate-900">{title}</h2>
+        <p className="text-xs text-slate-500">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+function TopicNavCard({ href, icon: Icon, title, description, gradient }) {
+  return (
+    <a
+      href={href}
+      className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white p-4 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl"
+    >
+      <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${gradient}`} />
+      <div className="flex items-start gap-3">
+        <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white shadow-lg`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-slate-900">{title}</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+        </div>
+      </div>
+    </a>
   );
 }
 
@@ -116,6 +154,7 @@ function ShortTick({ x, y, payload, maxLen = 8 }) {
 
 // ─── Main page ─────────────────────────────────────────────────
 export default function DashboardPage() {
+  const [user, setUser] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -123,6 +162,7 @@ export default function DashboardPage() {
   // Filters
   const [filterDistrict, setFilterDistrict] = useState('');
   const [filterSource, setFilterSource] = useState('');
+  const stats = useMemo(() => data?.totalStats || {}, [data]);
 
   const load = async () => {
     setLoading(true);
@@ -137,7 +177,15 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    queueMicrotask(() => {
+      fetch(`${BASE}/api/auth/me`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then(setUser)
+        .catch(() => {});
+      load();
+    });
+  }, []);
 
   // ── Derived: districts list ──
   const allDistricts = useMemo(() => {
@@ -200,6 +248,38 @@ export default function DashboardPage() {
     return data.aedByTypecode.map((r, i) => ({ ...r, total: Number(r.total), fill: PALETTE[i % PALETTE.length] }));
   }, [data]);
 
+  const dentalDistrictData = useMemo(() => {
+    if (!data) return [];
+    const rows = data.dentalByDistrict || [];
+    if (!filterDistrict) return rows;
+    return rows.filter((r) => r.name === filterDistrict);
+  }, [data, filterDistrict]);
+
+  const hsDistrictData = useMemo(() => {
+    if (!data) return [];
+    const rows = data.hsByDistrict || [];
+    if (!filterDistrict) return rows;
+    return rows.filter((r) => r.name === filterDistrict);
+  }, [data, filterDistrict]);
+
+  const dentalReadyData = useMemo(() => {
+    const ready = Number(stats?.dental_units_ready || 0);
+    const total = Number(stats?.dental_units_total || 0);
+    return [
+      { name: 'พร้อมใช้', value: ready, fill: '#22c55e', percent: total ? (ready / total) * 100 : 0 },
+      { name: 'ยังไม่พร้อม', value: Math.max(total - ready, 0), fill: '#ef4444', percent: total ? ((total - ready) / total) * 100 : 0 },
+    ];
+  }, [stats]);
+
+  const hsOpenData = useMemo(() => {
+    const open = Number(stats?.hs_open || 0);
+    const total = Number(stats?.hs_total || 0);
+    return [
+      { name: 'เปิดบริการ', value: open, fill: '#0ea5e9', percent: total ? (open / total) * 100 : 0 },
+      { name: 'ปิดบริการ', value: Math.max(total - open, 0), fill: '#94a3b8', percent: total ? ((total - open) / total) * 100 : 0 },
+    ];
+  }, [stats]);
+
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-50">
@@ -225,8 +305,7 @@ export default function DashboardPage() {
     );
   }
 
-  const s = data.totalStats;
-  const m = data.aedMissingCoords;
+  const s = stats;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -235,8 +314,9 @@ export default function DashboardPage() {
         <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link
-              href="/map"
+              href={user?.role && user.role !== 'admin' ? '/staff/module/dashboard' : '/map'}
               className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-all"
+              title={user?.role && user.role !== 'admin' ? 'กลับหน้า Workspace เจ้าหน้าที่' : 'กลับหน้าแผนที่'}
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
@@ -245,8 +325,8 @@ export default function DashboardPage() {
                 <BarChart2 className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-900 leading-tight">Dashboard AED สตูล</p>
-                <p className="text-xs text-slate-500">ข้อมูลเชิงสถิติระบบ AED จังหวัดสตูล</p>
+                <p className="text-sm font-bold text-slate-900 leading-tight">Dashboard ข้อมูลสุขภาพ สตูล</p>
+                <p className="text-xs text-slate-500">แยกข้อมูลตามหัวข้อ AED, ทันตกรรม และ Health Station</p>
               </div>
             </div>
           </div>
@@ -293,19 +373,42 @@ export default function DashboardPage() {
             <RefreshCw className="w-3.5 h-3.5" />
             รีเฟรช
           </button>
+          {user?.role && user.role !== 'admin' && (
+            <Link
+              href="/staff"
+              className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-semibold hover:bg-slate-800 transition-all flex-shrink-0"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              โมดูลของฉัน
+            </Link>
+          )}
         </div>
       </div>
 
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* ── Stat cards row ── */}
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-          <StatCard icon={Heart}     color="sky"     label="AED รวมทั้งหมด"    value={s?.aed_total}       sub={`ใช้งานได้ ${s?.aed_active} เครื่อง`} />
-          <StatCard icon={CheckCircle} color="emerald" label="AED พร้อมใช้งาน"  value={s?.aed_active}      sub={`${s?.aed_total ? ((s.aed_active/s.aed_total)*100).toFixed(0) : 0}% ของทั้งหมด`} />
-          <StatCard icon={AlertTriangle} color="amber" label="รอใส่พิกัด"       value={s?.aed_no_coords}   warn={Number(s?.aed_no_coords) > 0} sub="จุดที่ยังไม่มีพิกัด" />
-          <StatCard icon={Building2}  color="violet"   label="หน่วยบริการ"       value={s?.fac_total}       sub={`ใช้งานได้ ${s?.fac_active} หน่วย`} />
-          <StatCard icon={MapPin}     color="sky"     label="ใช้พิกัดชั้นดี"   value={Number(m?.exact_coords) + Number(m?.matched_coords || 0)} sub="sheet + จับคู่หน่วยบริการ" />
-          <StatCard icon={Zap}        color="red"     label="พิกัดโดยประมาณ"  value={m?.approx_coords}   sub="จุดศูนย์กลางตำบล" />
-        </div>
+        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <TopicNavCard href="#aed" icon={Heart} title="AED" description="จุดบริการ AED, สถานะใช้งาน, พิกัด และจำนวนเครื่อง" gradient="from-sky-500 via-cyan-500 to-blue-700" />
+          <TopicNavCard href="#facilities" icon={Building2} title="หน่วยบริการ" description="หน่วยบริการสาธารณสุข แยกตามประเภทและอำเภอ" gradient="from-indigo-500 via-blue-500 to-cyan-700" />
+          <TopicNavCard href="#dental" icon={Stethoscope} title="ทันตกรรม" description="หน่วยทันตกรรมและความพร้อมของยูนิต" gradient="from-violet-500 via-fuchsia-500 to-purple-700" />
+          <TopicNavCard href="#health-stations" icon={RadioTower} title="Health Station" description="สถานีสุขภาพชุมชนและสถานะเปิดบริการ" gradient="from-emerald-500 via-teal-500 to-cyan-700" />
+        </section>
+
+        <section className="space-y-5">
+          <SectionHeader
+            id="aed"
+            icon={Heart}
+            kicker="AED"
+            title="ข้อมูล AED"
+            description="แสดงเฉพาะข้อมูลจุดบริการ AED และสถานะเครื่อง"
+            gradient="from-sky-500 via-cyan-500 to-blue-700"
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <StatCard icon={Heart} color="sky" label="AED รวมทั้งหมด" value={s?.aed_total} sub={`ใช้งานได้ ${s?.aed_active} เครื่อง`} />
+            <StatCard icon={CheckCircle} color="emerald" label="AED พร้อมใช้งาน" value={s?.aed_active} sub={`${s?.aed_total ? ((s.aed_active/s.aed_total)*100).toFixed(0) : 0}% ของทั้งหมด`} />
+            <StatCard icon={AlertTriangle} color="amber" label="รอใส่พิกัด" value={s?.aed_no_coords} warn={Number(s?.aed_no_coords) > 0} sub="จุดที่ยังไม่มีพิกัด" />
+            <StatCard icon={Zap} color="cyan" label="จำนวนเครื่องรวม" value={data.aedQuantityByDistrict.reduce((sum, row) => sum + Number(row.quantity || 0), 0)} sub="รวมจาก field quantity" />
+          </div>
 
         {/* ── Row 2: AED by district + active/inactive pie ── */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
@@ -511,6 +614,20 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Row 5: Health facilities ── */}
+        <SectionHeader
+          id="facilities"
+          icon={Building2}
+          kicker="Facilities"
+          title="ข้อมูลหน่วยบริการสาธารณสุข"
+          description="แสดงเฉพาะจำนวนหน่วยบริการ แยกตามประเภทและอำเภอ"
+          gradient="from-indigo-500 via-blue-500 to-cyan-700"
+        />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <StatCard icon={Building2} color="violet" label="หน่วยบริการทั้งหมด" value={s?.fac_total} sub={`ใช้งานได้ ${s?.fac_active} หน่วย`} />
+          <StatCard icon={MapPin} color="cyan" label="พื้นที่ให้บริการ" value={data.facByDistrict.length} sub="จำนวนอำเภอที่มีข้อมูลหน่วยบริการ" />
+        </div>
+
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
           <ChartCard title="หน่วยบริการสาธารณสุข แยกตามประเภท">
             <ResponsiveContainer width="100%" height={240}>
@@ -645,6 +762,211 @@ export default function DashboardPage() {
 
         <p className="text-center text-xs text-slate-400 pb-4">
           ระบบ AED จังหวัดสตูล · ข้อมูล ณ วันที่นำเข้าล่าสุด
+        </p>
+        </section>
+
+        {/* ── Row 7: Dental section ── */}
+        <section className="space-y-5">
+          <SectionHeader
+            id="dental"
+            icon={Stethoscope}
+            kicker="Dental"
+            title="ข้อมูลทันตกรรม"
+            description="แสดงเฉพาะข้อมูลหน่วยทันตกรรมและความพร้อมของยูนิต"
+            gradient="from-violet-500 via-fuchsia-500 to-purple-700"
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard icon={Stethoscope} color="fuchsia" label="หน่วยทันตกรรม" value={s?.dental_total} sub={`เปิดบริการ ${s?.dental_active} หน่วย`} />
+            <StatCard icon={CheckCircle} color="emerald" label="ยูนิตพร้อมใช้" value={s?.dental_units_ready} sub={`จากทั้งหมด ${s?.dental_units_total} ตัว`} />
+            <StatCard icon={Activity} color="violet" label="อัตราพร้อมใช้" value={s?.dental_units_total ? `${((s.dental_units_ready / s.dental_units_total) * 100).toFixed(0)}%` : '0%'} sub="พร้อมใช้เทียบกับยูนิตทั้งหมด" />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            <ChartCard title="หน่วยทันตกรรม รายอำเภอ" className="xl:col-span-2">
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart
+                  data={dentalDistrictData}
+                  layout="vertical"
+                  margin={{ left: 80, right: 30, top: 4, bottom: 4 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" tick={<ShortTick maxLen={10} />} width={80} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="total" name="หน่วยบริการ" stackId="a" fill="#a855f7" />
+                  <Bar dataKey="ready_count" name="เก้าอี้พร้อมใช้" fill="#22c55e" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="สัดส่วนเก้าอี้ทันตกรรมพร้อมใช้">
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={dentalReadyData}
+                    cx="50%"
+                    cy="48%"
+                    innerRadius={62}
+                    outerRadius={88}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {dentalReadyData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<PieTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-2 flex items-center justify-center gap-6">
+                {dentalReadyData.map((d) => (
+                  <div key={d.name} className="text-center">
+                    <p className="text-2xl font-black" style={{ color: d.fill }}>{d.value}</p>
+                    <p className="text-xs text-slate-500">{d.name}</p>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <p className="text-sm font-bold text-slate-800">ตารางหน่วยทันตกรรม รายอำเภอ</p>
+            </div>
+            {dentalDistrictData.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                      <th className="px-4 py-3 text-left">อำเภอ</th>
+                      <th className="px-4 py-3 text-right">หน่วยบริการ</th>
+                      <th className="px-4 py-3 text-right">เก้าอี้ทั้งหมด</th>
+                      <th className="px-4 py-3 text-right">พร้อมใช้</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {dentalDistrictData.map((row) => (
+                      <tr key={row.name} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-800">{row.name || '-'}</td>
+                        <td className="px-4 py-3 text-right font-mono text-slate-700">{Number(row.total)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-violet-600">{Number(row.unit_count)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-emerald-600">{Number(row.ready_count)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-12 gap-2 text-slate-400">
+                <Stethoscope className="w-8 h-8" />
+                <p className="text-sm">ไม่พบข้อมูลทันตกรรมตามฟิลเตอร์ที่เลือก</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── Row 8: Health Station section ── */}
+        <section className="space-y-5">
+          <SectionHeader
+            id="health-stations"
+            icon={RadioTower}
+            kicker="Health Station"
+            title="ข้อมูล Health Station"
+            description="แสดงเฉพาะข้อมูลสถานี Health Station และสถานะเปิดบริการ"
+            gradient="from-emerald-500 via-teal-500 to-cyan-700"
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard icon={RadioTower} color="teal" label="Health Station" value={s?.hs_total} sub={`เปิดให้บริการ ${s?.hs_open} สถานี`} />
+            <StatCard icon={CheckCircle} color="emerald" label="เปิดบริการ" value={s?.hs_open} sub={`${s?.hs_total ? ((s.hs_open / s.hs_total) * 100).toFixed(0) : 0}% ของทั้งหมด`} />
+            <StatCard icon={Activity} color="cyan" label="มี อสม. ประจำ" value={s?.hs_aom} sub="สถานีที่มี อสม. รับผิดชอบ" />
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+            <ChartCard title="Health Station รายอำเภอ" className="xl:col-span-2">
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart
+                  data={hsDistrictData}
+                  layout="vertical"
+                  margin={{ left: 80, right: 30, top: 4, bottom: 4 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" tick={<ShortTick maxLen={10} />} width={80} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="total" name="สถานีทั้งหมด" stackId="a" fill="#06b6d4" />
+                  <Bar dataKey="open_count" name="เปิดให้บริการ" fill="#10b981" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartCard>
+
+            <ChartCard title="สัดส่วนสถานีที่เปิดให้บริการ">
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={hsOpenData}
+                    cx="50%"
+                    cy="48%"
+                    innerRadius={62}
+                    outerRadius={88}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {hsOpenData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<PieTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-2 flex items-center justify-center gap-6">
+                {hsOpenData.map((d) => (
+                  <div key={d.name} className="text-center">
+                    <p className="text-2xl font-black" style={{ color: d.fill }}>{d.value}</p>
+                    <p className="text-xs text-slate-500">{d.name}</p>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <p className="text-sm font-bold text-slate-800">ตาราง Health Station รายอำเภอ</p>
+            </div>
+            {hsDistrictData.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                      <th className="px-4 py-3 text-left">อำเภอ</th>
+                      <th className="px-4 py-3 text-right">สถานี</th>
+                      <th className="px-4 py-3 text-right">เปิดให้บริการ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {hsDistrictData.map((row) => (
+                      <tr key={row.name} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-800">{row.name || '-'}</td>
+                        <td className="px-4 py-3 text-right font-mono text-slate-700">{Number(row.total)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-emerald-600">{Number(row.open_count)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center py-12 gap-2 text-slate-400">
+                <RadioTower className="w-8 h-8" />
+                <p className="text-sm">ไม่พบข้อมูล Health Station ตามฟิลเตอร์ที่เลือก</p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <p className="text-center text-xs text-slate-400 pb-4">
+          ระบบข้อมูลสุขภาพ สตูล · ข้อมูล ณ วันที่นำเข้าล่าสุด
         </p>
       </div>
     </div>

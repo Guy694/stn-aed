@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
+import { checkRateLimit, rateLimitResponse } from '@/app/lib/rate-limit';
 
 const REPORT_TYPE_LABELS = {
   damaged:     'เครื่องชำรุด/เสียหาย',
@@ -11,6 +12,13 @@ const REPORT_TYPE_LABELS = {
 
 // POST /api/aed/[id]/report — public endpoint (no auth required)
 export async function POST(request, { params }) {
+  const rateLimit = checkRateLimit(request, {
+    keyPrefix: 'aed-report',
+    limit: 5,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (rateLimit.limited) return rateLimitResponse(rateLimit);
+
   try {
     const { id } = await params;
     const aedId = parseInt(id, 10);

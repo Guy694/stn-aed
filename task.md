@@ -1,32 +1,26 @@
-# ภารกิจ: พัฒนาระบบแสดงผลโทนสว่าง (Light Theme)
+# ภารกิจ: พัฒนาระบบข้อมูลสุขภาพ สตูล — ขยายจาก AED เป็น 3 หมวด
 
-รายการสิ่งที่ต้องทำในการเปลี่ยนสไตล์จากโหมดมืดเป็นโหมดสว่างทั่วทั้งระบบ
+## สถานะล่าสุด
 
-## Tasks
+- `[x]` **SQL Schema + Seed Data**
+  - `database/health_stations.sql` — สร้างแล้ว (5 seed records นำเข้า DB แล้ว)
+  - `database/dental_units.sql` — นำเข้า DB แล้ว (20 records, aed table ยังครบ 123 records)
 
-- `[/]` **ปรับปรุงไฟล์ Global CSS (`globals.css`)**
-  - ลบหรือเปลี่ยน CSS Variables จากสีมืดให้เป็นโทนสว่าง
-  - ปรับการเชื่อมโยงของ Leaflet Popup, Zoom Control ให้เข้ากับสไตล์ขาวสะอาดตา
-  - เปลี่ยนสีและสไตล์ของ Scrollbar
-- `[ ]` **แก้ไขส่วนนำทาง (`Navbar.js`)**
-  - เปลี่ยนพื้นหลังแท็บเมนูด้านบนเป็นพื้นโปร่งแสงสีอ่อน (`bg-white/80`)
-  - เปลี่ยนชุดสีตัวหนังสือและเส้นขอบเมนูให้ตัดกับพื้นหสัง
-- `[ ]` **ปรับปรุงระบบแผนที่ (`MapView.js`)**
-  - แก้ไขปุ่มตั้งค่า (Layer Switcher/Satellite)
-  - แต่งเติมกล่อง Popup ให้มีสีตัวหนังสือที่ชัดเจนยิ่งขึ้น และเปลี่ยนกล่องพิกัด/สถิติ
-  - ปรับสีเส้นและ opacity ของตำบล/อำเภอ หากจำเป็น
-- `[ ]` **ปรับแต่งฟอร์ม AED (`AEDModal.js`)**
-  - สร้างหน้าต่างแบบ Light Glassmorphism (`bg-white`)
-  - แก้ไขกล่อง Input เป็นสีเทาอ่อน/ขาว และขอบสีจาง พร้อมตั้งค่า Placeholder ให้เป็นเทากลาง
-  - เปลี่ยนสีพื้นหลัง Backdrop ให้โปร่งแสงสว่างกว่าเดิม
-- `[ ]` **เปลี่ยนดีไซน์หน้า Map (`map/page.js`)**
-  - ปรับสี Sidebar และแถบ Hero ด้านบนเป็นสีสว่าง/Gradient
-  - สลับสีพื้นหลังกล่องรายการที่ค้นหาและสไตล์ของตัวหนังสือ
-- `[ ]` **เปลี่ยนดีไซน์หน้า Login (`login/page.js`)**
-  - เปลี่ยนจากการใช้ `bg-slate-900` เป็นสีขาว/เทาอ่อน พร้อมแต่งแต้มรัศมีสีแดง/ฟ้า (Blur shadow)
-  - ทำกล่องล็อกอินเป็นสีขาวมีเงา (Shadow) บางๆ
-- `[ ]` **เปลี่ยนดีไซน์หน้า Admin (`admin/page.js`)**
-  - เปลี่ยนธีมตาราง (Table View) และส่วนควบคุม
-  - เปลี่ยน Confirm Dialog ให้เป็นสีขาวและ Toast ให้โดดเด่นตัดกับสภาพแวดล้อมสว่าง
-- `[ ]` **Verification / Browser Test**
-  - จับหน้าจอด้วย Subagent สรุปผลความเรียบร้อย
+- `[x]` **API Routes**
+  - `app/api/dental/route.js` — GET (subquery พิกัดจาก health_facilities) + POST
+  - `app/api/dental/[id]/route.js` — GET, PUT, DELETE
+  - `app/api/health-stations/route.js` — GET + POST
+  - `app/api/health-stations/[id]/route.js` — GET, PUT, DELETE
+  - `app/api/dashboard/route.js` — อัปเดตให้รวม dental + hs stats
+
+- `[x]` **MapView.js** — เพิ่ม icon + marker + popup สำหรับ dental (purple) และ health station (teal)
+
+- `[x]` **map/page.js** — Tab system (ทั้งหมด / AED / ทันตกรรม / Health Station) + layer toggles + stats
+
+- `[x]` **admin/page.js** — เพิ่ม tab ทันตกรรม + Health Station พร้อม table + delete confirm
+
+- `[x]` **dashboard/page.js** — stat cards 6 ใบ (AED, AED active, พิกัด, หน่วยบริการ, ทันตกรรม, Health Station) + ตาราง dental/hs รายอำเภอ
+
+- `[x]` **login/page.js** — fix useSearchParams() ด้วย Suspense boundary
+
+- `[x]` **Build** — ผ่าน clean build ไม่มี error

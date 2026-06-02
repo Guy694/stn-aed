@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
-import { getSession } from '@/app/lib/session';
+import { requireAdmin } from '@/app/lib/auth-guards';
+import { writeAuditLog } from '@/app/lib/audit-log';
+import { validateFacilityPayload, ValidationError, validationResponse } from '@/app/lib/validators';
 
 // GET /api/facilities — list all facilities
 export async function GET() {
@@ -21,23 +23,19 @@ export async function GET() {
 
 // POST /api/facilities — create new facility
 export async function POST(request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, response } = await requireAdmin();
+  if (response) return response;
 
   try {
-    const body = await request.json();
-    const { name, typecode, changwat = 'สตูล', address = '', tambon = '', district_name = '', lat, lon, is_active = 1 } = body;
-
-    if (!name || !typecode || lat == null || lon == null) {
-      return NextResponse.json({ error: 'กรุณากรอกข้อมูลที่จำเป็น' }, { status: 400 });
-    }
+    const payload = validateFacilityPayload(await request.json());
 
     const result = await query(
       `INSERT INTO health_facilities (name, typecode, changwat, address, tambon, district_name, lat, lon, is_active)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, typecode, changwat, address, tambon, district_name, lat, lon, is_active]
+      [
+        payload.name, payload.typecode, payload.changwat, payload.address, payload.tambon,
+        payload.district_name, payload.lat, payload.lon, payload.is_active,
+      ]
     );
 
     const newFacility = await query(
@@ -45,8 +43,18 @@ export async function POST(request) {
       [result.insertId]
     );
 
+    await writeAuditLog({
+      session,
+      action: 'create',
+      entityType: 'health_facility',
+      entityId: result.insertId,
+      summary: `เพิ่มหน่วยบริการ ${payload.name}`,
+      metadata: { name: payload.name, typecode: payload.typecode },
+    });
+
     return NextResponse.json(newFacility[0], { status: 201 });
   } catch (error) {
+    if (error instanceof ValidationError) return validationResponse(error);
     console.error('Create facility error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
   }

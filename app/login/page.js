@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Heart, User, Lock, Eye, EyeOff, LogIn, ArrowLeft, Shield } from 'lucide-react';
@@ -15,7 +15,7 @@ const LINE_ERROR_MSG = {
   invalid_request: 'คำขอไม่ถูกต้อง กรุณาลองใหม่',
 };
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lineError = searchParams.get('error');
@@ -45,7 +45,7 @@ export default function LoginPage() {
         setError(data.error || 'เกิดข้อผิดพลาด');
         return;
       }
-      router.push('/admin');
+      router.push(data.redirectTo || '/staff');
       router.refresh();
     } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
@@ -190,5 +190,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

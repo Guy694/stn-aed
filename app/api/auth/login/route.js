@@ -38,8 +38,11 @@ export async function POST(request) {
 
     await createSession(user);
 
+    const redirectTo = user.role === 'admin' ? '/admin' : '/staff';
+
     return NextResponse.json({
       success: true,
+      redirectTo,
       user: {
         id: user.id,
         username: user.username,

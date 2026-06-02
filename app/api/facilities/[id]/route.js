@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
-import { getSession } from '@/app/lib/session';
+import { requireAdmin } from '@/app/lib/auth-guards';
+import { writeAuditLog } from '@/app/lib/audit-log';
+import { validateFacilityPayload, ValidationError, validationResponse } from '@/app/lib/validators';
 
 // GET /api/facilities/[id]
 export async function GET(request, { params }) {
@@ -25,29 +27,39 @@ export async function GET(request, { params }) {
 
 // PUT /api/facilities/[id]
 export async function PUT(request, { params }) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, response } = await requireAdmin();
+  if (response) return response;
 
   try {
     const { id } = await params;
-    const body = await request.json();
-    const { name, typecode, changwat, address, tambon, district_name, lat, lon, is_active } = body;
+    const payload = validateFacilityPayload(await request.json());
 
     await query(
       `UPDATE health_facilities
        SET name=?, typecode=?, changwat=?, address=?, tambon=?, district_name=?, lat=?, lon=?, is_active=?
        WHERE id=?`,
-      [name, typecode, changwat, address, tambon, district_name, lat, lon, is_active, id]
+      [
+        payload.name, payload.typecode, payload.changwat, payload.address, payload.tambon,
+        payload.district_name, payload.lat, payload.lon, payload.is_active, id,
+      ]
     );
 
     const updated = await query(
       'SELECT * FROM health_facilities WHERE id = ?',
       [id]
     );
+    await writeAuditLog({
+      session,
+      action: 'update',
+      entityType: 'health_facility',
+      entityId: id,
+      summary: `แก้ไขหน่วยบริการ ${payload.name}`,
+      metadata: { name: payload.name, typecode: payload.typecode },
+    });
+
     return NextResponse.json(updated[0]);
   } catch (error) {
+    if (error instanceof ValidationError) return validationResponse(error);
     console.error('Update facility error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
   }
@@ -55,14 +67,20 @@ export async function PUT(request, { params }) {
 
 // DELETE /api/facilities/[id]
 export async function DELETE(request, { params }) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, response } = await requireAdmin();
+  if (response) return response;
 
   try {
     const { id } = await params;
+    const [existing] = await query('SELECT name FROM health_facilities WHERE id = ?', [id]);
     await query('DELETE FROM health_facilities WHERE id = ?', [id]);
+    await writeAuditLog({
+      session,
+      action: 'delete',
+      entityType: 'health_facility',
+      entityId: id,
+      summary: `ลบหน่วยบริการ ${existing?.name || id}`,
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete facility error:', error);

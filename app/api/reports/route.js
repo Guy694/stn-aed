@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
-import { getSession } from '@/app/lib/session';
+import { requireModuleAccess } from '@/app/lib/auth-guards';
 
 // GET /api/reports — admin: list all reports (newest first)
 export async function GET() {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { response } = await requireModuleAccess('my_reports');
+  if (response) return response;
+
   try {
     const rows = await query(`
       SELECT
