@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
-import { requireAdmin } from '@/app/lib/auth-guards';
+import { requireModuleAccess } from '@/app/lib/auth-guards';
 import { writeAuditLog } from '@/app/lib/audit-log';
 
 const VALID_STATUSES = ['pending', 'in_progress', 'resolved'];
 
 // PATCH /api/reports/[id] — admin: update report status / admin note
 export async function PATCH(request, { params }) {
-  const { session, response } = await requireAdmin();
+  const { session, response } = await requireModuleAccess('manage_aed');
   if (response) return response;
 
   try {

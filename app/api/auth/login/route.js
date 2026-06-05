@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { query } from '@/app/lib/db';
 import { createSession } from '@/app/lib/session';
+import { ensureRegistrationRequestTable } from '@/app/lib/registration-requests';
 
 export async function POST(request) {
   try {
@@ -20,6 +21,22 @@ export async function POST(request) {
     );
 
     if (users.length === 0) {
+      await ensureRegistrationRequestTable();
+      const pending = await query(
+        `SELECT id
+         FROM staff_registration_requests
+         WHERE username = ? AND status = 'pending'
+         LIMIT 1`,
+        [username],
+      );
+
+      if (pending.length > 0) {
+        return NextResponse.json(
+          { error: 'บัญชีนี้กำลังรอแอดมินอนุมัติ' },
+          { status: 403 },
+        );
+      }
+
       return NextResponse.json(
         { error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' },
         { status: 401 }

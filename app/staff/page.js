@@ -1,19 +1,21 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
-  LayoutGrid,
+  ChevronRight,
+  ClipboardList,
+  Compass,
   MapPin,
-  BarChart2,
-  AlertTriangle,
+  BarChart3,
+  Layers3,
   UserCircle2,
   Mail,
   Shield,
   LogOut,
-  ArrowUpRight,
 } from 'lucide-react';
 
+import Navbar from '@/app/components/Navbar';
 import { getSession, deleteSession } from '@/app/lib/session';
-import { STAFF_MODULES } from '@/app/lib/modules';
+import { ADMIN_MANAGE_MODULES, STAFF_MODULES } from '@/app/lib/modules';
 import { getUserModulePermissions } from '@/app/lib/module-permissions';
 
 function iconFor(moduleKey) {
@@ -21,31 +23,33 @@ function iconFor(moduleKey) {
     case 'map':
       return MapPin;
     case 'dashboard':
-      return BarChart2;
+      return BarChart3;
+    case 'my_reports':
+      return ClipboardList;
     default:
-      return AlertTriangle;
+      return Layers3;
   }
 }
 
-function themeFor(moduleKey) {
+function accentFor(moduleKey) {
   switch (moduleKey) {
     case 'dashboard':
       return {
-        gradient: 'from-emerald-500 via-teal-500 to-cyan-700',
-        glow: 'shadow-emerald-500/25',
-        tint: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+        badge: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        icon: 'bg-emerald-600 text-white',
+        border: 'border-emerald-200 hover:border-emerald-300',
       };
     case 'my_reports':
       return {
-        gradient: 'from-amber-500 via-orange-500 to-rose-600',
-        glow: 'shadow-amber-500/25',
-        tint: 'bg-amber-50 text-amber-700 border-amber-100',
+        badge: 'bg-amber-100 text-amber-700 border-amber-200',
+        icon: 'bg-amber-600 text-white',
+        border: 'border-amber-200 hover:border-amber-300',
       };
     default:
       return {
-        gradient: 'from-sky-500 via-cyan-500 to-blue-700',
-        glow: 'shadow-sky-500/25',
-        tint: 'bg-sky-50 text-sky-700 border-sky-100',
+        badge: 'bg-sky-100 text-sky-700 border-sky-200',
+        icon: 'bg-sky-600 text-white',
+        border: 'border-sky-200 hover:border-sky-300',
       };
   }
 }
@@ -63,110 +67,166 @@ export default async function StaffPortalPage() {
 
   const permissions = await getUserModulePermissions(session.userId, session.role);
   const enabledModules = STAFF_MODULES.filter((m) => permissions[m.key]);
+  const enabledManageModules = ADMIN_MANAGE_MODULES.filter((m) => permissions[m.key]);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.20),transparent_32%),radial-gradient(circle_at_top_right,rgba(16,185,129,0.16),transparent_30%),linear-gradient(135deg,#f8fafc_0%,#e2e8f0_100%)]">
-      <div className="max-w-[1500px] mx-auto p-4 md:p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <aside className="relative lg:col-span-3 overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950 text-white shadow-2xl">
-            <div className="absolute -left-20 -top-20 h-48 w-48 rounded-full bg-cyan-400/20 blur-3xl" />
-            <div className="absolute -bottom-24 right-0 h-56 w-56 rounded-full bg-emerald-400/15 blur-3xl" />
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f4f8ff_0%,#edf3fb_100%)]">
+      <Navbar user={session} />
 
-            <div className="relative px-6 py-7 border-b border-white/10">
-              <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-cyan-400 via-sky-500 to-blue-700 p-1 shadow-2xl shadow-cyan-500/20">
-                <div className="h-full w-full rounded-full bg-slate-950 flex items-center justify-center">
-                  <UserCircle2 className="w-14 h-14 text-cyan-100" />
-                </div>
+      <aside className="border-b border-slate-200 bg-white p-4 shadow-sm md:p-5 lg:fixed lg:inset-y-16 lg:left-0 lg:w-72 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
+                <UserCircle2 className="h-7 w-7 text-slate-600" />
               </div>
-              <h2 className="mt-4 text-center text-xl font-bold text-white">{session.fullName}</h2>
-              <p className="mt-1 text-center text-sm text-cyan-200">เจ้าหน้าที่ระบบ</p>
-              <div className="mt-5 space-y-2 text-sm text-slate-300">
-                <p className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                  <Mail className="w-4 h-4 text-cyan-300" />{session.username}
-                </p>
-                <p className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                  <Shield className="w-4 h-4 text-emerald-300" />Role: {session.role}
-                </p>
+              <div>
+                <p className="text-base font-bold text-slate-900">{session.fullName}</p>
+                <p className="text-sm text-slate-500">เจ้าหน้าที่ระบบ</p>
               </div>
             </div>
 
-            <div className="relative p-4 space-y-2">
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <Mail className="h-4 w-4 text-slate-500" />
+                <span className="truncate">{session.username}</span>
+              </div>
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <Shield className="h-4 w-4 text-slate-500" />
+                <span>Role: {session.role}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-semibold text-slate-900">ทางลัด</p>
+            <div className="mt-3 space-y-2">
               <Link
                 href="/staff"
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/15 text-white border border-white/20 text-sm font-semibold shadow-lg shadow-cyan-950/20"
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800"
               >
-                <LayoutGrid className="w-4 h-4" />หน้าโมดูลของฉัน
+                หน้าเลือกโมดูล
+                <ChevronRight className="h-4 w-4 text-sky-500" />
               </Link>
               <Link
                 href="/map"
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-300 hover:bg-white/10 border border-transparent hover:border-white/10 text-sm font-medium transition-all"
+                className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50"
               >
-                <MapPin className="w-4 h-4" />หน้าแผนที่
+                หน้าแผนที่
+                <ChevronRight className="h-4 w-4 text-slate-400" />
               </Link>
             </div>
+          </div>
 
-            <form action={logoutAction} className="relative p-4 pt-0">
-              <button
-                type="submit"
-                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-400/25 text-red-100 text-sm font-semibold hover:bg-red-500/20 transition-all"
-              >
-                <LogOut className="w-4 h-4" />ออกจากระบบ
-              </button>
-            </form>
-          </aside>
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+            >
+              <LogOut className="h-4 w-4" />ออกจากระบบ
+            </button>
+          </form>
+        </div>
+      </aside>
 
-          <main className="lg:col-span-9 space-y-5">
-            <div className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-slate-950 p-6 text-white shadow-2xl">
-              <div className="absolute -right-28 -top-28 h-72 w-72 rounded-full bg-cyan-400/25 blur-3xl" />
-              <div className="absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-emerald-400/20 blur-3xl" />
-              <div className="relative">
-                <p className="text-xs uppercase tracking-[0.2em] text-cyan-200 font-bold">Staff Portal</p>
-                <h1 className="mt-2 text-3xl font-black tracking-tight">หน้าแรกเจ้าหน้าที่</h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-                  เลือกโมดูลที่ต้องการใช้งาน ระบบจะแสดงเฉพาะโมดูลที่แอดมินอนุญาตให้บัญชีของคุณใช้งาน
-                </p>
-              </div>
+      <main className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8 lg:ml-72 lg:mr-0 lg:max-w-none lg:p-6">
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-700">Staff Workspace</p>
+              <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">พื้นที่ทำงานเจ้าหน้าที่</h1>
+              <p className="mt-2 text-sm text-slate-600">
+                เลือกโมดูลที่ต้องการใช้งาน ระบบจะแสดงเฉพาะโมดูลที่ได้รับสิทธิ์จากแอดมิน
+              </p>
             </div>
+            <Link
+              href="/map"
+              className="inline-flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-semibold text-sky-700 transition-colors hover:bg-sky-100"
+            >
+              <Compass className="h-4 w-4" />เปิดหน้าแผนที่
+            </Link>
+          </div>
+        </section>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {enabledModules.map((module) => {
-                const Icon = iconFor(module.key);
-                const theme = themeFor(module.key);
-                return (
+        <section className="mt-4 space-y-4">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-base font-bold text-slate-900">โมดูลที่ใช้งานได้</p>
+              <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                {enabledModules.length} โมดูล
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-500">กดเลือกโมดูลเพื่อเข้าสู่หน้าทำงานเฉพาะส่วน</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {enabledModules.map((module) => {
+              const Icon = iconFor(module.key);
+              const accent = accentFor(module.key);
+
+              return (
+                <Link
+                  key={module.key}
+                  href={module.workspaceRoute}
+                  className={`group rounded-2xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${accent.border}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${accent.icon}`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${accent.badge}`}>
+                        เปิดใช้งาน
+                      </span>
+                      <p className="mt-1 text-base font-bold text-slate-900">{module.label}</p>
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-600">{module.description}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {enabledModules.length === 0 && (
+            <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-center">
+              <p className="font-semibold text-amber-800">ยังไม่มีโมดูลที่เปิดใช้งานสำหรับบัญชีนี้</p>
+              <p className="mt-1 text-sm text-amber-700">กรุณาติดต่อแอดมินเพื่อขอสิทธิ์การใช้งาน</p>
+            </div>
+          )}
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-base font-bold text-slate-900">โมดูลจัดการข้อมูล</p>
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                {enabledManageModules.length} โมดูล
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-500">เจ้าหน้าที่ที่ได้สิทธิ์สามารถเข้าหน้าจัดการและแก้ไขข้อมูลของโมดูลนั้นได้ทั้งหมด</p>
+
+            {enabledManageModules.length > 0 ? (
+              <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {enabledManageModules.map((module) => (
                   <Link
                     key={module.key}
-                    href={module.workspaceRoute}
-                    className={`group relative overflow-hidden rounded-3xl border border-white/70 bg-white p-5 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl ${theme.glow}`}
+                    href={module.route}
+                    className="group rounded-2xl border border-emerald-200 bg-emerald-50/50 p-4 text-sm font-semibold text-emerald-800 transition-all hover:-translate-y-0.5 hover:bg-emerald-50"
                   >
-                    <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${theme.gradient}`} />
-                    <div className="absolute -right-12 -top-12 h-28 w-28 rounded-full bg-slate-100 blur-2xl transition-all group-hover:bg-cyan-100" />
-                    <div className="flex items-start gap-3">
-                      <div className={`relative w-12 h-12 rounded-2xl bg-gradient-to-br ${theme.gradient} text-white flex items-center justify-center shadow-lg ${theme.glow}`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div className="relative min-w-0 flex-1">
-                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-bold ${theme.tint}`}>
-                          เปิดใช้งาน
-                        </span>
-                        <p className="text-lg font-bold text-slate-900 leading-tight">{module.label}</p>
-                        <p className="mt-1 text-sm text-slate-500">{module.description}</p>
-                      </div>
-                      <ArrowUpRight className="relative h-4 w-4 text-slate-300 transition-all group-hover:text-slate-700" />
+                    <div className="flex items-center justify-between gap-2">
+                      <span>{module.label}</span>
+                      <ChevronRight className="h-4 w-4 text-emerald-500 transition-transform group-hover:translate-x-0.5" />
                     </div>
                   </Link>
-                );
-              })}
-            </div>
-
-            {enabledModules.length === 0 && (
-              <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-white to-amber-50 p-8 text-center shadow-xl">
-                <p className="text-amber-800 font-semibold">ยังไม่มีโมดูลที่เปิดใช้งานสำหรับบัญชีนี้</p>
-                <p className="text-sm text-slate-500 mt-1">กรุณาติดต่อแอดมินเพื่อเปิดสิทธิ์การใช้งานโมดูล</p>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+                ยังไม่ได้รับสิทธิ์จัดการโมดูล กรุณาติดต่อแอดมิน
               </div>
             )}
-          </main>
-        </div>
-      </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

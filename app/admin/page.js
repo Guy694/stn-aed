@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { LayoutDashboard, ShieldCheck, Building2, Hospital, Zap, Stethoscope, RadioTower, ScrollText, ArrowUpRight } from 'lucide-react';
+import { redirect } from 'next/navigation';
+
+import { getUserModulePermissions } from '@/app/lib/module-permissions';
+import { getSession } from '@/app/lib/session';
 
 const modules = [
   {
@@ -40,7 +44,20 @@ const mainMenuItems = [
   { label: 'สสอ.', icon: Hospital },
 ];
 
-export default function AdminIndexPage() {
+export default async function AdminIndexPage() {
+  const session = await getSession();
+  if (!session) redirect('/login');
+
+  if (session.role !== 'admin') {
+    const permissions = await getUserModulePermissions(session.userId, session.role);
+
+    if (permissions.manage_aed) redirect('/admin/aed');
+    if (permissions.manage_dental) redirect('/admin/dental');
+    if (permissions.manage_health_stations) redirect('/admin/health-stations');
+
+    redirect('/staff');
+  }
+
   return (
     <div className="px-6 py-7 space-y-7">
       <section className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-slate-950 p-7 text-white shadow-2xl">

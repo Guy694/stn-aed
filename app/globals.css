@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 @import 'leaflet/dist/leaflet.css';
 
@@ -23,7 +22,7 @@
 html, body {
   height: 100%;
   margin: 0;
-  font-family: 'Sarabun', 'Inter', sans-serif;
+  font-family: inherit;
   background: var(--color-bg);
   color: var(--color-text);
 }
@@ -31,7 +30,7 @@ html, body {
 /* Leaflet CSS override for light theme */
 .leaflet-container {
   background: #e2e8f0 !important;
-  font-family: 'Sarabun', sans-serif;
+  font-family: inherit;
 }
 
 .leaflet-popup-content-wrapper {

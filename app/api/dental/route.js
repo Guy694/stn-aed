@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
-import { requireAdmin } from '@/app/lib/auth-guards';
+import { requireModuleAccess } from '@/app/lib/auth-guards';
 import { writeAuditLog } from '@/app/lib/audit-log';
 import { validateDentalPayload, ValidationError, validationResponse } from '@/app/lib/validators';
 
@@ -56,7 +56,7 @@ export async function GET() {
 
 // POST /api/dental — เพิ่มยูนิตทันตกรรม (ต้อง login)
 export async function POST(request) {
-  const { session, response } = await requireAdmin();
+  const { session, response } = await requireModuleAccess('manage_dental');
   if (response) return response;
 
   try {

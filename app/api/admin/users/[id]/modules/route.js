@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
 import { requireAdmin } from '@/app/lib/auth-guards';
 import { writeAuditLog } from '@/app/lib/audit-log';
-import { STAFF_MODULE_KEYS } from '@/app/lib/modules';
+import { ADMIN_MANAGE_MODULE_KEYS } from '@/app/lib/modules';
 import {
   getUserModulePermissions,
   setUserModulePermissions,
@@ -25,7 +25,7 @@ export async function GET(_request, { params }) {
     const modulePermissions = await getUserModulePermissions(user.id, user.role);
 
     return NextResponse.json({
-      moduleKeys: STAFF_MODULE_KEYS,
+      moduleKeys: ADMIN_MANAGE_MODULE_KEYS,
       modulePermissions,
     });
   } catch (error) {
@@ -56,7 +56,7 @@ export async function PUT(request, { params }) {
 
     const normalizedModules = Object.fromEntries(
       Object.entries(modules)
-        .filter(([key]) => STAFF_MODULE_KEYS.includes(key))
+        .filter(([key]) => ADMIN_MANAGE_MODULE_KEYS.includes(key))
         .map(([key, value]) => [key, Boolean(value)]),
     );
 

@@ -1,6 +1,5 @@
 'use client';
 import dynamic from 'next/dynamic';
-import Image from 'next/image';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -9,12 +8,13 @@ const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 import {
   Heart, MapPin, Activity, LogIn, LayoutDashboard,
-  LogOut, Shield, ChevronLeft, ChevronRight, AlertCircle,
+  ChevronLeft, ChevronRight, AlertCircle,
   Zap, BarChart2, ChevronDown, Stethoscope, RadioTower,
 } from 'lucide-react';
 
 const MapView = dynamic(() => import('@/app/components/MapView'), { ssr: false });
 import AEDReportModal from '@/app/components/AEDReportModal';
+import Navbar from '@/app/components/Navbar';
 
 const TYPE_PALETTE = [
   '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6',
@@ -27,6 +27,15 @@ const CATEGORIES = [
   { key: 'dental', label: 'ทันตกรรม',      color: '#7c3aed' },
   { key: 'health', label: 'Health Station', color: '#0ea5e9' },
 ];
+
+async function fetchJson(path, fallback = null) {
+  const response = await fetch(`${BASE}${path}`, { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`${path} returned ${response.status}`);
+  }
+  const data = await response.json();
+  return data ?? fallback;
+}
 
 const normalizeLocationName = (value = '', type = 'district') => {
   if (!value) return '';
@@ -92,29 +101,38 @@ export default function MapPage() {
       })
       .catch(() => {});
 
-    Promise.all([
-      fetch(`${BASE}/api/facilities`).then((r) => r.json()),
-      fetch(`${BASE}/api/aed`).then((r) => r.json()),
-      fetch(`${BASE}/api/dental`).then((r) => r.json()),
-      fetch(`${BASE}/api/health-stations`).then((r) => r.json()),
-      fetch(`${BASE}/api/geo/tambons/list`).then((r) => (r.ok ? r.json() : [])),
+    Promise.allSettled([
+      fetchJson('/api/facilities', []),
+      fetchJson('/api/aed', []),
+      fetchJson('/api/dental', []),
+      fetchJson('/api/health-stations', []),
+      fetchJson('/api/geo/tambons/list', []),
     ])
-      .then(([fac, aed, dental, hs, tambons]) => {
+      .then((results) => {
+        const [fac, aed, dental, hs, tambons] = results.map((result) =>
+          result.status === 'fulfilled' ? result.value : null
+        );
+
         if (Array.isArray(fac)) setHealthFacilities(fac);
         if (Array.isArray(aed)) setAedList(aed);
         if (Array.isArray(dental)) setDentalList(dental);
         if (Array.isArray(hs)) setHealthStationList(hs);
         if (Array.isArray(tambons)) setGeoTambons(tambons);
-        if (!Array.isArray(fac) && !Array.isArray(aed)) setError('ไม่สามารถโหลดข้อมูลได้');
-      })
-      .catch(() => setError('ไม่สามารถเชื่อมต่อฐานข้อมูล'));
-  }, [router]);
 
-  const handleLogout = async () => {
-    await fetch(`${BASE}/api/auth/logout`, { method: 'POST' });
-    router.push('/login');
-    router.refresh();
-  };
+        const failed = results
+          .map((result, index) => (result.status === 'rejected' ? index : null))
+          .filter((index) => index !== null);
+
+        if (!Array.isArray(fac) && !Array.isArray(aed)) {
+          setError('ไม่สามารถโหลดข้อมูลหลักได้');
+        } else if (failed.length > 0) {
+          setError('โหลดข้อมูลบางส่วนไม่สำเร็จ');
+        } else {
+          setError(null);
+        }
+      })
+      .catch(() => setError('ไม่สามารถโหลดข้อมูลได้'));
+  }, [router]);
 
   const allTypes = useMemo(
     () => [...new Set(aedList.map((f) => f.manager_typecode).filter(Boolean))].sort(),
@@ -268,68 +286,12 @@ export default function MapPage() {
       </div>
 
       {/* Navbar */}
-      <div className="absolute top-0 left-0 right-0 z-[500] p-3">
-        <nav className="bg-white/80 backdrop-blur-2xl rounded-2xl border border-white/70 shadow-2xl px-4 py-2.5 flex items-center justify-between gap-3">
-          <Link href="/map" className="flex items-center gap-2.5 group flex-shrink-0">
-            <Image src={`${BASE}/img/logo.png`} alt="Logo" width={40} height={40} className="w-10 h-10" />
-            <div className="hidden sm:block">
-              <p className="text-sm font-bold text-slate-900 leading-tight">ระบบข้อมูลสุขภาพ สตูล</p>
-              <p className="text-xs text-slate-500 leading-none">สำนักงานสาธารณสุขจังหวัดสตูล</p>
-            </div>
-          </Link>
-
-          <div className="flex items-center gap-2 flex-1 justify-center">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-200 shadow-sm">
-              <Heart className="w-3.5 h-3.5 text-red-500" />
-              <span className="text-xs font-bold text-red-700">{aedList.length}</span>
-              <span className="text-xs text-slate-500 hidden sm:inline">AED</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50 border border-violet-200 shadow-sm">
-              <Stethoscope className="w-3.5 h-3.5 text-violet-600" />
-              <span className="text-xs font-bold text-violet-700">{dentalList.length}</span>
-              <span className="text-xs text-slate-500 hidden sm:inline">ทันตกรรม</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 border border-sky-200 shadow-sm">
-              <RadioTower className="w-3.5 h-3.5 text-sky-600" />
-              <span className="text-xs font-bold text-sky-700">{healthStationList.length}</span>
-              <span className="text-xs text-slate-500 hidden sm:inline">Health Station</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {user ? (
-              <>
-                <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200">
-                  <Shield className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="text-xs font-medium text-slate-700">{user.fullName}</span>
-                </div>
-                <Link href="/dashboard" className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-all border border-slate-200 shadow-sm">
-                  <BarChart2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Dashboard</span>
-                </Link>
-                {user.role === 'admin' ? (
-                  <Link href="/admin" className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-all border border-slate-200 shadow-sm">
-                    <LayoutDashboard className="w-3.5 h-3.5" /><span className="hidden sm:inline">จัดการข้อมูล</span>
-                  </Link>
-                ) : (
-                  <Link href="/staff/module/map" className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-all border border-slate-200 shadow-sm">
-                    <LayoutDashboard className="w-3.5 h-3.5" /><span className="hidden sm:inline">Workspace</span>
-                  </Link>
-                )}
-                <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-red-500 hover:bg-red-50 transition-all border border-red-100">
-                  <LogOut className="w-3.5 h-3.5" /><span className="hidden sm:inline">ออกจากระบบ</span>
-                </button>
-              </>
-            ) : (
-              <Link href="/login" className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-400 hover:to-sky-500 transition-all shadow-lg shadow-sky-500/25">
-                <LogIn className="w-3.5 h-3.5" />เข้าสู่ระบบ
-              </Link>
-            )}
-          </div>
-        </nav>
+      <div className="absolute top-0 left-0 right-0 z-[500]">
+        <Navbar user={user} />
       </div>
 
       {/* Left sidebar */}
-      <div className={`absolute z-[400] top-[76px] bottom-4 left-3 transition-all duration-300 ${sidebarOpen ? 'w-72' : 'w-0 opacity-0 pointer-events-none'}`}>
+      <div className={`absolute z-[400] top-16 bottom-4 left-3 transition-all duration-300 ${sidebarOpen ? 'w-72' : 'w-0 opacity-0 pointer-events-none'}`}>
         <div className="flex flex-col gap-2.5 h-full overflow-y-auto pr-0.5 pb-1">
 
           {error && (

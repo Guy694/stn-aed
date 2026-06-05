@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { ensureAuditLogTable } from '@/app/lib/audit-log';
 import { requireAdmin } from '@/app/lib/auth-guards';
 import { query } from '@/app/lib/db';
 
@@ -8,6 +9,8 @@ export async function GET(request) {
   if (response) return response;
 
   try {
+    await ensureAuditLogTable();
+
     const limitParam = Number(request.nextUrl.searchParams.get('limit') || 100);
     const safeLimit = Math.min(Math.max(limitParam || 100, 1), 500);
     const pageParam = Number(request.nextUrl.searchParams.get('page') || 1);

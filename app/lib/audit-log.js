@@ -32,6 +32,8 @@ export async function ensureAuditLogTable() {
 
 export async function writeAuditLog({ session, action, entityType, entityId = null, summary = null, metadata = null }) {
   try {
+    await ensureAuditLogTable();
+
     await query(
       `INSERT INTO admin_audit_logs (
         actor_user_id,

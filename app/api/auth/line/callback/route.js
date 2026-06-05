@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { query } from '@/app/lib/db';
 import { createSession } from '@/app/lib/session';
+import { ensureRegistrationRequestTable } from '@/app/lib/registration-requests';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -64,27 +65,64 @@ export async function GET(request) {
 
     const { userId: lineUserId, displayName, pictureUrl } = await profileRes.json();
 
-    // Upsert user (default role = 'user')
-    await query(
-      `INSERT INTO users (line_user_id, username, full_name, picture_url, role)
-       VALUES (?, ?, ?, ?, 'user')
-       ON DUPLICATE KEY UPDATE
-         full_name   = VALUES(full_name),
-         picture_url = VALUES(picture_url)`,
-      [lineUserId, lineUserId, displayName, pictureUrl ?? null]
+    const existingUsers = await query(
+      'SELECT id, username, full_name, role FROM users WHERE line_user_id = ? LIMIT 1',
+      [lineUserId],
     );
 
-    const [user] = await query(
-      'SELECT id, full_name, role FROM users WHERE line_user_id = ? LIMIT 1',
-      [lineUserId]
+    if (existingUsers.length === 0) {
+      await ensureRegistrationRequestTable();
+
+      const pending = await query(
+        `SELECT id
+         FROM staff_registration_requests
+         WHERE line_user_id = ? AND status = 'pending'
+         LIMIT 1`,
+        [lineUserId],
+      );
+
+      cookieStore.set(
+        'line_register_draft',
+        JSON.stringify({
+          line_user_id: lineUserId,
+          full_name: displayName,
+          picture_url: pictureUrl ?? null,
+          has_pending_request: pending.length > 0,
+        }),
+        {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 30,
+          path: '/',
+        },
+      );
+
+      const registerUrl = new URL('/register', request.url);
+      registerUrl.searchParams.set('source', 'line');
+      if (pending.length > 0) {
+        registerUrl.searchParams.set('status', 'pending');
+      }
+      return NextResponse.redirect(registerUrl);
+    }
+
+    await query(
+      `UPDATE users
+       SET full_name = ?, picture_url = ?
+       WHERE id = ?`,
+      [displayName, pictureUrl ?? null, existingUsers[0].id],
     );
+
+    const user = existingUsers[0];
 
     await createSession({
       id: user.id,
-      username: displayName,
+      username: user.username,
       full_name: user.full_name,
       role: user.role,
     });
+
+    cookieStore.delete('line_register_draft');
 
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     const dest = `${basePath}${user.role === 'admin' ? '/admin/' : '/staff'}`;

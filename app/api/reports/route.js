@@ -1,11 +1,25 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
-import { requireModuleAccess } from '@/app/lib/auth-guards';
+import { getSession } from '@/app/lib/session';
+import { isModuleEnabledForUser } from '@/app/lib/module-permissions';
 
 // GET /api/reports — admin: list all reports (newest first)
 export async function GET() {
-  const { response } = await requireModuleAccess('my_reports');
-  if (response) return response;
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (session.role !== 'admin') {
+    const [canReports, canManageAed] = await Promise.all([
+      isModuleEnabledForUser(session.userId, session.role, 'my_reports'),
+      isModuleEnabledForUser(session.userId, session.role, 'manage_aed'),
+    ]);
+
+    if (!canReports && !canManageAed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
 
   try {
     const rows = await query(`

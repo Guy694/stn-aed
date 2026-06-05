@@ -45,6 +45,26 @@ export const STAFF_MODULES = [
 
 export const STAFF_MODULE_KEYS = STAFF_MODULES.map((m) => m.key);
 
+export const ADMIN_MANAGE_MODULES = [
+  {
+    key: 'manage_dental',
+    label: 'จัดการทันตกรรม',
+    route: '/admin/dental',
+  },
+  {
+    key: 'manage_health_stations',
+    label: 'จัดการ Health Station',
+    route: '/admin/health-stations',
+  },
+  {
+    key: 'manage_aed',
+    label: 'จัดการ AED',
+    route: '/admin/aed',
+  },
+];
+
+export const ADMIN_MANAGE_MODULE_KEYS = ADMIN_MANAGE_MODULES.map((m) => m.key);
+
 export function getStaffModuleByKey(key) {
   return STAFF_MODULES.find((m) => m.key === key) || null;
 }

@@ -6,7 +6,6 @@ const nextConfig = {
   ...(basePath && { basePath, assetPrefix: basePath }),
   ...(isDocker && { output: 'standalone' }),
   reactCompiler: true,
-  trailingSlash: true,
   experimental: {
     serverActions: { bodySizeLimit: '50mb' }
   }

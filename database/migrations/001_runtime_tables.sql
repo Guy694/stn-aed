@@ -53,3 +53,26 @@ CREATE TABLE IF NOT EXISTS `admin_audit_logs` (
   INDEX `idx_audit_entity` (`entity_type`, `entity_id`),
   INDEX `idx_audit_action` (`action`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `staff_registration_requests` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `source` VARCHAR(20) NOT NULL DEFAULT 'form',
+  `line_user_id` VARCHAR(191) NULL,
+  `username` VARCHAR(120) NOT NULL,
+  `full_name` VARCHAR(255) NOT NULL,
+  `phone` VARCHAR(50) NULL,
+  `position_name` VARCHAR(255) NULL,
+  `facility_name` VARCHAR(255) NULL,
+  `note` TEXT NULL,
+  `password_hash` VARCHAR(255) NOT NULL,
+  `status` VARCHAR(20) NOT NULL DEFAULT 'pending',
+  `reviewed_by` BIGINT UNSIGNED NULL,
+  `reviewed_at` DATETIME NULL,
+  `user_id` BIGINT UNSIGNED NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_reg_status_created` (`status`, `created_at`),
+  INDEX `idx_reg_line_user` (`line_user_id`),
+  INDEX `idx_reg_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

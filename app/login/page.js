@@ -11,6 +11,7 @@ const LINE_ERROR_MSG = {
   state_mismatch:  'การยืนยันตัวตนล้มเหลว กรุณาลองใหม่',
   token_exchange:  'ไม่สามารถเชื่อมต่อ LINE ได้ กรุณาลองใหม่',
   profile_fetch:   'ไม่สามารถดึงข้อมูล LINE ได้ กรุณาลองใหม่',
+  pending_approval: 'บัญชีของคุณอยู่ระหว่างรอแอดมินอนุมัติ',
   server_error:    'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่',
   invalid_request: 'คำขอไม่ถูกต้อง กรุณาลองใหม่',
 };
@@ -82,7 +83,7 @@ function LoginForm() {
             </div>
             <h1 className="text-2xl font-bold text-slate-900">เข้าสู่ระบบ</h1>
             <p className="text-sm text-slate-500 mt-1 text-center">
-              ระบบติดตามจุดบริการเครื่องกู้ชีพ AED สตูล
+              ระบบติดตามจุดบริการสาธารณสุข จังหวัดสตูล
             </p>
           </div>
 
@@ -182,6 +183,13 @@ function LoginForm() {
             </svg>
             เข้าสู่ระบบด้วย LINE
           </a>
+
+          <Link
+            href="/register"
+            className="mt-3 w-full inline-flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-all"
+          >
+            ลงทะเบียนเจ้าหน้าที่ใหม่
+          </Link>
 
           {/* Footer note */}
           <p className="text-center text-xs text-slate-500 mt-5">
