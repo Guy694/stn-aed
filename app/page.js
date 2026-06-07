@@ -93,7 +93,7 @@ export default function SplashScreen() {
             ระบบติดตาม
           </h1>
           <h1 className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400 text-3xl sm:text-4xl font-bold leading-tight">
-            จุดบริการเครื่องกู้ชีพ AED
+            จุดบริการสาธารณสุข
           </h1>
         </div>
 
