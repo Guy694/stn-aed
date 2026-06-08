@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { query } from '@/app/lib/db';
 import { requireAdmin } from '@/app/lib/auth-guards';
 import { writeAuditLog } from '@/app/lib/audit-log';
-import { ADMIN_MANAGE_MODULE_KEYS } from '@/app/lib/modules';
+import { ALL_MODULE_PERMISSION_KEYS } from '@/app/lib/modules';
 import {
   ensureModulePermissionTable,
   getUserModulePermissions,
@@ -32,7 +32,7 @@ export async function GET() {
     );
 
     return NextResponse.json({
-      moduleKeys: ADMIN_MANAGE_MODULE_KEYS,
+      moduleKeys: ALL_MODULE_PERMISSION_KEYS,
       users: withPermissions,
     });
   } catch (error) {
@@ -73,7 +73,7 @@ export async function POST(request) {
     if (role !== 'admin') {
       await setUserModulePermissions(
         userId,
-        Object.fromEntries(ADMIN_MANAGE_MODULE_KEYS.map((key) => [key, false])),
+        Object.fromEntries(ALL_MODULE_PERMISSION_KEYS.map((key) => [key, false])),
         session.userId,
       );
     }
@@ -89,6 +89,7 @@ export async function POST(request) {
     const createdUser = users[0];
 
     await writeAuditLog({
+      request,
       session,
       action: 'create',
       entityType: 'user',

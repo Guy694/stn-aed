@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { X, AlertTriangle, Wrench, PackageSearch, BatteryLow, HelpCircle, CheckCircle2, Send } from 'lucide-react';
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch } from '@/app/lib/client-api';
 
 const REPORT_TYPES = [
   { value: 'damaged',     label: 'เครื่องชำรุด/เสียหาย',     icon: AlertTriangle, color: 'red'    },
@@ -35,7 +35,7 @@ export default function AEDReportModal({ aed, onClose }) {
     setError('');
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/aed/${aed.id}/report`, {
+      const res = await apiFetch(`/api/aed/${aed.id}/report`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

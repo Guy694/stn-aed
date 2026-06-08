@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch } from '@/app/lib/client-api';
 
 import {
   Heart, MapPin, Activity, LogIn, LayoutDashboard,
@@ -29,7 +29,7 @@ const CATEGORIES = [
 ];
 
 async function fetchJson(path, fallback = null) {
-  const response = await fetch(`${BASE}${path}`, { cache: 'no-store' });
+  const response = await apiFetch(`${path}`, { cache: 'no-store' });
   if (!response.ok) {
     throw new Error(`${path} returned ${response.status}`);
   }
@@ -86,7 +86,7 @@ export default function MapPage() {
   const [filterTambon, setFilterTambon] = useState('');
 
   useEffect(() => {
-    fetch(`${BASE}/api/auth/me`)
+    apiFetch(`/api/auth/me`)
       .then((r) => (r.ok ? r.json() : null))
       .then((sessionUser) => {
         setUser(sessionUser);

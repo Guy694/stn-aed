@@ -2,8 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { publicPath } from '@/app/lib/client-api';
 
 const DURATION = 3200; // ms before redirect
 
@@ -69,10 +68,10 @@ export default function SplashScreen() {
           {/* Logo circle */}
           <div
             className="w-32 h-32 rounded-3xl bg-gradient-to-br from-sky-500 to-emerald-500 shadow-2xl flex items-center justify-center"
-            style={{ animation: 'logo-pop 0.7s cubic-bezier(.34,1.56,.64,1) 0.1s both' }}
+              style={{ animation: 'logo-pop 0.7s ease-out 0.1s both' }}
           >
             <Image
-              src={`${BASE}/img/logo.png`}
+              src={publicPath('/img/logo.png')}
               alt="AED Satun Logo"
               width={80}
               height={80}
@@ -92,7 +91,7 @@ export default function SplashScreen() {
           <h1 className="text-white text-3xl sm:text-4xl font-bold leading-tight drop-shadow-lg">
             ระบบติดตาม
           </h1>
-          <h1 className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400 text-3xl sm:text-4xl font-bold leading-tight">
+          <h1 className="text-emerald-300 text-3xl sm:text-4xl font-bold leading-tight">
             จุดบริการสาธารณสุข
           </h1>
         </div>
@@ -126,7 +125,7 @@ export default function SplashScreen() {
               <span
                 key={i}
                 className="w-1.5 h-1.5 rounded-full bg-sky-400"
-                style={{ animation: `dot-bounce 1.2s ease-in-out ${i * 0.2}s infinite` }}
+                style={{ opacity: 0.45 + i * 0.22 }}
               />
             ))}
             <span className="ml-2 text-slate-400 text-xs tracking-wide">กำลังโหลด...</span>

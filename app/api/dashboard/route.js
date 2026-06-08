@@ -1,9 +1,34 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
-import { requireModuleAccess } from '@/app/lib/auth-guards';
+import { forbiddenResponse, unauthorizedResponse } from '@/app/lib/auth-guards';
+import { getUserModulePermissions } from '@/app/lib/module-permissions';
+import { getSession } from '@/app/lib/session';
 
-export async function GET() {
-  const { response } = await requireModuleAccess('dashboard');
+const MODULE_ACCESS = {
+  aed: 'manage_aed',
+  dental: 'manage_dental',
+  'health-stations': 'manage_health_stations',
+};
+
+async function requireDashboardAccess(moduleKey) {
+  const session = await getSession();
+  if (!session) return { response: unauthorizedResponse() };
+  if (session.role === 'admin') return { session };
+
+  const permissions = await getUserModulePermissions(session.userId, session.role);
+  const modulePermissionKey = MODULE_ACCESS[moduleKey];
+  const enabled = modulePermissionKey
+    ? permissions.dashboard || permissions[modulePermissionKey]
+    : permissions.dashboard;
+
+  if (!enabled) return { response: forbiddenResponse() };
+  return { session };
+}
+
+export async function GET(request) {
+  const requestedModule = request.nextUrl.searchParams.get('module');
+  const moduleKey = Object.hasOwn(MODULE_ACCESS, requestedModule) ? requestedModule : null;
+  const { response } = await requireDashboardAccess(moduleKey);
   if (response) return response;
 
   try {
@@ -74,6 +99,7 @@ export async function GET() {
     ]);
 
     return NextResponse.json({
+      module: moduleKey,
       aedByDistrict,
       aedByTambon: [],
       aedBySheet,

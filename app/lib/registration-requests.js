@@ -4,6 +4,19 @@ import { query } from '@/app/lib/db';
 
 let registrationTableEnsured = false;
 
+async function tableColumnExists(tableName, columnName) {
+  const rows = await query(
+    `SELECT COUNT(*) AS count
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = ?
+       AND COLUMN_NAME = ?`,
+    [tableName, columnName],
+  );
+
+  return Number(rows[0]?.count || 0) > 0;
+}
+
 export async function ensureRegistrationRequestTable() {
   if (registrationTableEnsured) return;
 
@@ -14,6 +27,7 @@ export async function ensureRegistrationRequestTable() {
       line_user_id VARCHAR(191) NULL,
       username VARCHAR(120) NOT NULL,
       full_name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NULL,
       phone VARCHAR(50) NULL,
       position_name VARCHAR(255) NULL,
       facility_name VARCHAR(255) NULL,
@@ -32,7 +46,23 @@ export async function ensureRegistrationRequestTable() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `);
 
+  if (!(await tableColumnExists('staff_registration_requests', 'email'))) {
+    await query(`
+      ALTER TABLE staff_registration_requests
+      ADD COLUMN email VARCHAR(255) NULL AFTER full_name
+    `);
+  }
+
   registrationTableEnsured = true;
+}
+
+export async function ensureUserEmailColumn() {
+  if (await tableColumnExists('users', 'email')) return;
+
+  await query(`
+    ALTER TABLE users
+    ADD COLUMN email VARCHAR(255) NULL AFTER full_name
+  `);
 }
 
 export async function upsertPendingRegistration(payload) {
@@ -43,6 +73,7 @@ export async function upsertPendingRegistration(payload) {
     lineUserId = null,
     username,
     fullName,
+    email,
     phone = null,
     positionName = null,
     facilityName = null,
@@ -64,10 +95,10 @@ export async function upsertPendingRegistration(payload) {
       const id = existing[0].id;
       await query(
         `UPDATE staff_registration_requests
-         SET source = ?, username = ?, full_name = ?, phone = ?, position_name = ?, facility_name = ?,
+         SET source = ?, username = ?, full_name = ?, email = ?, phone = ?, position_name = ?, facility_name = ?,
              note = ?, password_hash = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
-        [source, username, fullName, phone, positionName, facilityName, note, passwordHash, id],
+        [source, username, fullName, email, phone, positionName, facilityName, note, passwordHash, id],
       );
       return id;
     }
@@ -75,9 +106,9 @@ export async function upsertPendingRegistration(payload) {
 
   const result = await query(
     `INSERT INTO staff_registration_requests (
-      source, line_user_id, username, full_name, phone, position_name, facility_name, note, password_hash, status
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-    [source, lineUserId, username, fullName, phone, positionName, facilityName, note, passwordHash],
+      source, line_user_id, username, full_name, email, phone, position_name, facility_name, note, password_hash, status
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+    [source, lineUserId, username, fullName, email, phone, positionName, facilityName, note, passwordHash],
   );
 
   return result.insertId;

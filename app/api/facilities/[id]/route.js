@@ -49,6 +49,7 @@ export async function PUT(request, { params }) {
       [id]
     );
     await writeAuditLog({
+      request,
       session,
       action: 'update',
       entityType: 'health_facility',
@@ -75,6 +76,7 @@ export async function DELETE(request, { params }) {
     const [existing] = await query('SELECT name FROM health_facilities WHERE id = ?', [id]);
     await query('DELETE FROM health_facilities WHERE id = ?', [id]);
     await writeAuditLog({
+      request,
       session,
       action: 'delete',
       entityType: 'health_facility',

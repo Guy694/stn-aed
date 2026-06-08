@@ -4,18 +4,29 @@ import { requireModuleAccess } from '@/app/lib/auth-guards';
 import { writeAuditLog } from '@/app/lib/audit-log';
 import { validateAedPayload, ValidationError, validationResponse } from '@/app/lib/validators';
 
-const SELECT_COLS = `id, seq_no, location_name, manager_name,
-  aed_affiliation AS manager_typecode,
-  district_name,
-  quantity AS quantity_total,
-  manager_phone,
-  CAST(lat AS DOUBLE) AS lat, CAST(lon AS DOUBLE) AS lon,
-  status AS is_active, created_at, updated_at`;
+const SELECT_COLS = `a.id, a.seq_no, a.location_name, a.manager_name,
+  a.aed_affiliation AS manager_typecode,
+  a.district_name,
+  (
+    SELECT t.tam_name
+    FROM satun_tambon_polygon t
+    WHERE a.lat IS NOT NULL
+      AND a.lon IS NOT NULL
+      AND ST_Contains(
+        t.geometry,
+        ST_SRID(POINT(CAST(a.lon AS DOUBLE), CAST(a.lat AS DOUBLE)), ST_SRID(t.geometry))
+      )
+    LIMIT 1
+  ) AS tambon_name,
+  a.quantity AS quantity_total,
+  a.manager_phone,
+  CAST(a.lat AS DOUBLE) AS lat, CAST(a.lon AS DOUBLE) AS lon,
+  a.status AS is_active, a.created_at, a.updated_at`;
 
 // GET /api/aed — list all AED records
 export async function GET() {
   try {
-    const rows = await query(`SELECT ${SELECT_COLS} FROM aed ORDER BY id ASC`);
+    const rows = await query(`SELECT ${SELECT_COLS} FROM aed a ORDER BY a.id ASC`);
     return NextResponse.json(rows);
   } catch (error) {
     console.error('Get AED error:', error);
@@ -46,8 +57,9 @@ export async function POST(request) {
       ]
     );
 
-    const rows = await query(`SELECT ${SELECT_COLS} FROM aed WHERE id = ?`, [result.insertId]);
+    const rows = await query(`SELECT ${SELECT_COLS} FROM aed a WHERE a.id = ?`, [result.insertId]);
     await writeAuditLog({
+      request,
       session,
       action: 'create',
       entityType: 'aed',

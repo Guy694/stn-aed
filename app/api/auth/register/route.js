@@ -3,13 +3,36 @@ import { NextResponse } from 'next/server';
 
 import { query } from '@/app/lib/db';
 import { ensureRegistrationRequestTable, upsertPendingRegistration } from '@/app/lib/registration-requests';
+import { checkRateLimit, rateLimitResponse } from '@/app/lib/rate-limit';
+import { recordRateLimitEvent, recordRegistrationRequestEvent } from '@/app/lib/security-events';
+import { isActiveStaffPositionName } from '@/app/lib/staff-positions';
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 export async function POST(request) {
+  const rateLimitOptions = {
+    keyPrefix: 'auth-register',
+    limit: 5,
+    windowMs: 10 * 60 * 1000,
+  };
+  const rateLimit = checkRateLimit(request, rateLimitOptions);
+  if (rateLimit.limited) {
+    await recordRateLimitEvent({
+      request,
+      ...rateLimitOptions,
+      summary: 'มีการส่งคำขอลงทะเบียนถี่เกินกำหนด',
+    });
+    return rateLimitResponse(rateLimit);
+  }
+
   try {
     const body = await request.json();
 
     const username = String(body?.username || '').trim();
     const fullName = String(body?.full_name || '').trim();
+    const email = String(body?.email || '').trim().toLowerCase();
     const password = String(body?.password || '');
     const phone = String(body?.phone || '').trim() || null;
     const positionName = String(body?.position_name || '').trim() || null;
@@ -19,12 +42,20 @@ export async function POST(request) {
     const source = body?.source === 'line' ? 'line' : 'form';
     const lineUserId = body?.line_user_id ? String(body.line_user_id).trim() : null;
 
-    if (!username || !fullName || !password) {
-      return NextResponse.json({ error: 'กรุณากรอกชื่อผู้ใช้ ชื่อ-นามสกุล และรหัสผ่าน' }, { status: 400 });
+    if (!username || !fullName || !email || !password) {
+      return NextResponse.json({ error: 'กรุณากรอกชื่อผู้ใช้ ชื่อ-นามสกุล อีเมล และรหัสผ่าน' }, { status: 400 });
+    }
+
+    if (!isValidEmail(email)) {
+      return NextResponse.json({ error: 'รูปแบบอีเมลไม่ถูกต้อง' }, { status: 400 });
     }
 
     if (password.length < 6) {
       return NextResponse.json({ error: 'รหัสผ่านต้องอย่างน้อย 6 ตัวอักษร' }, { status: 400 });
+    }
+
+    if (!positionName || !(await isActiveStaffPositionName(positionName))) {
+      return NextResponse.json({ error: 'กรุณาเลือกตำแหน่งเจ้าหน้าที่จากรายการ' }, { status: 400 });
     }
 
     if (!Number.isFinite(facilityId) || facilityId <= 0) {
@@ -68,11 +99,27 @@ export async function POST(request) {
       lineUserId,
       username,
       fullName,
+      email,
       phone,
       positionName,
       facilityName,
       note,
       passwordHash,
+    });
+
+    await recordRegistrationRequestEvent({
+      request,
+      requestId,
+      registration: {
+        source,
+        lineUserId,
+        username,
+        fullName,
+        email,
+        phone,
+        positionName,
+        facilityName,
+      },
     });
 
     return NextResponse.json({

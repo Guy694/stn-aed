@@ -9,7 +9,7 @@ import {
   MapPin, Plus, ChevronDown,
 } from 'lucide-react';
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch } from '@/app/lib/client-api';
 
 const REPORT_TYPE_CONFIG = {
   damaged:     { label: 'เครื่องชำรุด/เสียหาย',    icon: AlertTriangle, cls: 'bg-red-50 border-red-200 text-red-700' },
@@ -41,7 +41,7 @@ export default function MyReportsPage() {
   async function loadAed() {
     setAedLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/aed`);
+      const res = await apiFetch(`/api/aed`);
       const data = await res.json();
       if (Array.isArray(data)) setAedList(data);
     } catch {}
@@ -51,7 +51,7 @@ export default function MyReportsPage() {
   async function loadReports() {
     setReportsLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/reports`);
+      const res = await apiFetch(`/api/reports`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) setReports(data);
@@ -61,7 +61,7 @@ export default function MyReportsPage() {
   }
 
   useEffect(() => {
-    fetch(`${BASE}/api/auth/me`).then((r) => r.ok ? r.json() : null).then(setUser);
+    apiFetch(`/api/auth/me`).then((r) => r.ok ? r.json() : null).then(setUser);
     queueMicrotask(() => {
       loadAed();
       loadReports();

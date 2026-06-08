@@ -32,6 +32,24 @@ LINE_CLIENT_SECRET=
 LINE_REDIRECT_URI=
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
+TELEGRAM_SECURITY_CHAT_ID=
+SECURITY_LOGIN_IP_ALERT_THRESHOLD=5
+SECURITY_LOGIN_USERNAME_ALERT_THRESHOLD=3
+SECURITY_LOGIN_ALERT_WINDOW_MINUTES=10
+SECURITY_WRITE_ACTOR_ALERT_THRESHOLD=20
+SECURITY_WRITE_IP_ALERT_THRESHOLD=30
+SECURITY_WRITE_ALERT_WINDOW_MINUTES=10
+```
+
+การส่งอีเมลแจ้งผลอนุมัติการลงทะเบียนใช้ SMTP เมื่อเปิดใช้งาน:
+
+```bash
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_FROM=
+SMTP_FROM_NAME=ระบบข้อมูลสุขภาพ สตูล
 ```
 
 ## Development
@@ -51,6 +69,8 @@ npm run dev
 
 ```bash
 mysql -u <user> -p <database> < database/migrations/001_runtime_tables.sql
+mysql -u <user> -p <database> < database/migrations/002_registration_email_positions.sql
+mysql -u <user> -p <database> < database/migrations/003_security_event_logs.sql
 ```
 
 ไฟล์ runtime migration สร้างตาราง:
@@ -58,6 +78,9 @@ mysql -u <user> -p <database> < database/migrations/001_runtime_tables.sql
 - `user_module_permissions`
 - `website_visit_logs`
 - `admin_audit_logs`
+- `security_event_logs`
+- `staff_positions`
+- เพิ่ม `email` ในคำขอลงทะเบียนและผู้ใช้งานสำหรับแจ้งผลอนุมัติ
 
 หลีกเลี่ยงการรัน seed SQL แบบไม่ตรวจสอบใน production โดยเฉพาะไฟล์ที่มี `DROP TABLE`
 
@@ -85,6 +108,10 @@ Smoke test ไม่สร้าง/แก้/ลบข้อมูล ใช้
 - API ที่แก้ข้อมูลใช้ `requireAdmin()`
 - Dashboard/report list ใช้ module permission guard
 - Admin actions สำคัญถูกบันทึกใน `admin_audit_logs`
+- เหตุการณ์ความปลอดภัยถูกบันทึกใน `security_event_logs`
+- คำขอลงทะเบียนใหม่ส่ง Telegram ทุกครั้งเมื่อมี `TELEGRAM_BOT_TOKEN` และ `TELEGRAM_CHAT_ID` หรือ `TELEGRAM_SECURITY_CHAT_ID`
+- Login ล้มเหลวถูกบันทึกทุกครั้ง และส่ง Telegram เมื่อผิดปกติตาม threshold
+- การแก้ไขข้อมูลจำนวนมากผิดปกติถูกตรวจจาก `admin_audit_logs`/write activity และส่ง Telegram ตาม threshold
 - ดู audit trail ได้ที่ `/admin/audit` หลังรัน runtime migration แล้ว
 - Public endpoints สำคัญมี in-memory rate limit ขั้นต้น เช่น `/api/aed/[id]/report` และ `/api/security/visits`
 - Seed scripts ต้องใช้ env เท่านั้น ไม่มี default production credential

@@ -1,10 +1,9 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { MapContainer, Marker, Popup, GeoJSON, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Heart, MapPin, Layers, Satellite, Map, Info, Navigation } from 'lucide-react';
-
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch, publicPath } from '@/app/lib/client-api';
 
 // Fix Leaflet default icon issue in Next.js
 delete L.Icon.Default.prototype._getIconUrl;
@@ -16,14 +15,14 @@ L.Icon.Default.mergeOptions({
 
 // ── Health facility icon ──
 const FACILITY_ICON = L.icon({
-  iconUrl: `${BASE}/img/hospital.png`,
+  iconUrl: publicPath('/img/hospital.png'),
   iconSize: [36, 36],
   iconAnchor: [18, 36],
   popupAnchor: [0, -38],
 });
 
 const FACILITY_ICON_SELECTED = L.icon({
-  iconUrl: `${BASE}/img/hospital.png`,
+  iconUrl: publicPath('/img/hospital.png'),
   iconSize: [46, 46],
   iconAnchor: [23, 46],
   popupAnchor: [0, -48],
@@ -31,14 +30,14 @@ const FACILITY_ICON_SELECTED = L.icon({
 
 // ── AED icon ──
 const AED_ICON = L.icon({
-  iconUrl: `${BASE}/img/aed.png`,
+  iconUrl: publicPath('/img/aed.png'),
   iconSize: [36, 36],
   iconAnchor: [18, 36],
   popupAnchor: [0, -38],
 });
 
 const AED_ICON_SELECTED = L.icon({
-  iconUrl: `${BASE}/img/aed.png`,
+  iconUrl: publicPath('/img/aed.png'),
   iconSize: [46, 46],
   iconAnchor: [23, 46],
   popupAnchor: [0, -48],
@@ -128,7 +127,14 @@ const TILE_LAYERS = {
 
 function GeoLayer({ data, color, opacity }) {
   if (!data) return null;
-  const defaultStyle = { color, weight: 1.5, fillOpacity: opacity, fillColor: color };
+  const defaultStyle = {
+    color,
+    weight: 2,
+    opacity: 0.9,
+    fillOpacity: opacity,
+    fillColor: color,
+    dashArray: '6 4',
+  };
   return (
     <GeoJSON
       key={color}
@@ -146,7 +152,13 @@ function GeoLayer({ data, color, opacity }) {
         }
         layer.on({
           mouseover(e) {
-            e.target.setStyle({ fillOpacity: Math.min(opacity * 5, 0.45), weight: 2.5, color });
+            e.target.setStyle({
+              fillOpacity: Math.min(opacity * 2.5, 0.35),
+              weight: 3,
+              opacity: 1,
+              color,
+              dashArray: undefined,
+            });
             e.target.bringToFront();
           },
           mouseout(e) {
@@ -318,25 +330,90 @@ export default function MapView({
   const [districtData, setDistrictData] = useState(null);
   const [tambonData, setTambonData] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [boundaryStatus, setBoundaryStatus] = useState({
+    districts: showDistricts ? 'loading' : 'idle',
+    tambons: showTambons ? 'loading' : 'idle',
+  });
+  const queueBoundaryLayerStatus = useCallback((layer, status) => {
+    queueMicrotask(() => {
+      setBoundaryStatus((prev) => (
+        prev[layer] === status ? prev : { ...prev, [layer]: status }
+      ));
+    });
+  }, []);
 
   useEffect(() => {
-    if (!showDistricts || districtData) return;
-    fetch(`${BASE}/api/geo/districts`)
+    if (!showDistricts) {
+      queueBoundaryLayerStatus('districts', 'idle');
+      return;
+    }
+    if (districtData) {
+      queueBoundaryLayerStatus('districts', 'ready');
+      return;
+    }
+    queueBoundaryLayerStatus('districts', 'loading');
+    apiFetch('/api/geo/districts')
       .then((r) => { if (!r.ok) throw new Error('districts fetch failed'); return r.json(); })
-      .then((d) => { if (d?.type === 'FeatureCollection') setDistrictData(d); })
-      .catch(console.error);
-  }, [showDistricts, districtData]);
+      .then((d) => {
+        if (d?.type === 'FeatureCollection') {
+          setDistrictData(d);
+          queueBoundaryLayerStatus('districts', 'ready');
+          return;
+        }
+        queueBoundaryLayerStatus('districts', 'error');
+      })
+      .catch((error) => {
+        queueBoundaryLayerStatus('districts', 'error');
+        console.warn('District boundary layer unavailable:', error?.message || error);
+      });
+  }, [showDistricts, districtData, queueBoundaryLayerStatus]);
 
   useEffect(() => {
-    if (!showTambons || tambonData) return;
-    fetch(`${BASE}/api/geo/tambons`)
+    if (!showTambons) {
+      queueBoundaryLayerStatus('tambons', 'idle');
+      return;
+    }
+    if (tambonData) {
+      queueBoundaryLayerStatus('tambons', 'ready');
+      return;
+    }
+    queueBoundaryLayerStatus('tambons', 'loading');
+    apiFetch('/api/geo/tambons')
       .then((r) => { if (!r.ok) throw new Error('tambons fetch failed'); return r.json(); })
-      .then((d) => { if (d?.type === 'FeatureCollection') setTambonData(d); })
-      .catch(console.error);
-  }, [showTambons, tambonData]);
+      .then((d) => {
+        if (d?.type === 'FeatureCollection') {
+          setTambonData(d);
+          queueBoundaryLayerStatus('tambons', 'ready');
+          return;
+        }
+        queueBoundaryLayerStatus('tambons', 'error');
+      })
+      .catch((error) => {
+        queueBoundaryLayerStatus('tambons', 'error');
+        console.warn('Tambon boundary layer unavailable:', error?.message || error);
+      });
+  }, [showTambons, tambonData, queueBoundaryLayerStatus]);
+
+  const showBoundaryLoading =
+    (showDistricts && boundaryStatus.districts === 'loading') ||
+    (showTambons && boundaryStatus.tambons === 'loading');
+
+  const showBoundaryError =
+    (showDistricts && boundaryStatus.districts === 'error') ||
+    (showTambons && boundaryStatus.tambons === 'error');
 
   return (
     <div className="relative w-full h-full overflow-hidden">
+      {showBoundaryLoading && (
+        <div className="pointer-events-none absolute left-4 top-4 z-[1000] rounded-2xl border border-sky-200 bg-white/90 px-3 py-2 text-xs font-medium text-slate-700 shadow-lg backdrop-blur-xl">
+          กำลังโหลดขอบเขตแผนที่...
+        </div>
+      )}
+      {showBoundaryError && (
+        <div className="pointer-events-none absolute left-4 top-4 z-[1000] rounded-2xl border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs font-medium text-amber-800 shadow-lg backdrop-blur-xl">
+          โหลดขอบเขตแผนที่ไม่สำเร็จ
+        </div>
+      )}
       <MapContainer
         center={[6.65, 100.07]}
         zoom={11}
@@ -355,10 +432,10 @@ export default function MapView({
         )}
 
         {showDistricts && districtData && (
-          <GeoLayer data={districtData} color="#0ea5e9" opacity={0.07} />
+          <GeoLayer data={districtData} color="#0ea5e9" opacity={0.12} />
         )}
         {showTambons && tambonData && (
-          <GeoLayer data={tambonData} color="#10b981" opacity={0.1} />
+          <GeoLayer data={tambonData} color="#10b981" opacity={0.08} />
         )}
 
         {/* Health facility markers (green cross icon) */}
@@ -521,7 +598,7 @@ export default function MapView({
             <Popup maxWidth={300} className="aed-popup">
               <div className="min-w-[240px] p-1">
                 <div className="flex items-start gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center flex-shrink-0 shadow-md">
+                  <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2C8 2 5 5 5 8c0 2 .5 3.5 1 5l1 5c.3 1.5 1.5 2.5 2.5 2.5S11 19 12 17c1 2 1.5 3.5 2.5 3.5S16.7 19.5 17 18l1-5c.5-1.5 1-3 1-5 0-3-3-6-7-6z"/></svg>
                   </div>
                   <div className="flex-1 min-w-0">
@@ -563,7 +640,7 @@ export default function MapView({
                     href={`https://www.google.com/maps/dir/?api=1&destination=${parseFloat(f.lat)},${parseFloat(f.lon)}&travelmode=driving`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white mt-3 flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-700 text-xs font-semibold hover:from-violet-400 hover:to-purple-600 transition-all shadow-sm"
+                    className="text-white mt-3 flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-violet-600 text-xs font-semibold hover:bg-violet-700 transition-all shadow-sm"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
                     นำทาง
@@ -664,16 +741,31 @@ export default function MapView({
         <div className="absolute bottom-4 left-4 z-[1000]">
           <div className="flex items-center gap-2 bg-white/90 backdrop-blur-xl rounded-full px-3 py-1.5 border border-slate-200 shadow-xl flex-wrap">
             {facilities.length > 0 && (
-              <><span className="w-3 h-3 rounded bg-emerald-500 flex-shrink-0" /><span className="text-xs text-slate-700 font-semibold">{facilities.length} หน่วยบริการ</span></>
+              <>
+                <span className="w-3 h-3 rounded bg-emerald-500 flex-shrink-0" />
+                <span className="text-xs text-emerald-800 font-semibold">{facilities.length} หน่วยบริการ</span>
+              </>
             )}
             {aedPoints.length > 0 && (
-              <><span className="w-px h-4 bg-slate-300" /><Heart className="w-3.5 h-3.5 text-red-500 flex-shrink-0" /><span className="text-xs text-slate-700 font-semibold">{aedPoints.length} AED</span></>
+              <>
+                <span className="w-px h-4 bg-slate-300" />
+                <Heart className="w-3.5 h-3.5 text-red-600 flex-shrink-0" />
+                <span className="text-xs text-red-700 font-semibold">{aedPoints.length} AED</span>
+              </>
             )}
             {dentalPoints.length > 0 && (
-              <><span className="w-px h-4 bg-slate-300" /><span className="w-3 h-3 rounded-full bg-violet-600 flex-shrink-0" /><span className="text-xs text-slate-700 font-semibold">{dentalPoints.length} ทันตกรรม</span></>
+              <>
+                <span className="w-px h-4 bg-slate-300" />
+                <span className="w-3 h-3 rounded-full bg-violet-600 flex-shrink-0" />
+                <span className="text-xs text-violet-800 font-semibold">{dentalPoints.length} ทันตกรรม</span>
+              </>
             )}
             {healthStations.length > 0 && (
-              <><span className="w-px h-4 bg-slate-300" /><span className="w-3 h-3 rounded bg-sky-500 flex-shrink-0" /><span className="text-xs text-slate-700 font-semibold">{healthStations.length} Health Station</span></>
+              <>
+                <span className="w-px h-4 bg-slate-300" />
+                <span className="w-3 h-3 rounded bg-sky-500 flex-shrink-0" />
+                <span className="text-xs text-sky-800 font-semibold">{healthStations.length} Health Station</span>
+              </>
             )}
           </div>
         </div>
@@ -682,7 +774,7 @@ export default function MapView({
       {/* Pick coords hint */}
       {pickCoords && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000]">
-          <div className="flex items-center gap-2 bg-sky-500/90 backdrop-blur-xl rounded-full px-4 py-2 shadow-xl animate-bounce">
+          <div className="flex items-center gap-2 bg-sky-600 rounded-full px-4 py-2 shadow-xl">
             <Info className="w-3.5 h-3.5 text-white" />
             <span className="text-xs text-white font-medium">คลิกบนแผนที่เพื่อเลือกพิกัด</span>
           </div>

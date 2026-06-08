@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
 import { checkRateLimit, rateLimitResponse } from '@/app/lib/rate-limit';
+import { recordRateLimitEvent } from '@/app/lib/security-events';
+import { extractClientIp, toNetworkSegment } from '@/app/lib/visit-logs';
 
 const REPORT_TYPE_LABELS = {
   damaged:     'เครื่องชำรุด/เสียหาย',
@@ -10,14 +12,86 @@ const REPORT_TYPE_LABELS = {
   other:       'อื่นๆ',
 };
 
+function compact(value, fallback = '-') {
+  if (value === null || value === undefined || value === '') return fallback;
+  return String(value);
+}
+
+function compactUserAgent(value) {
+  if (!value) return null;
+  return String(value).replace(/\s+/g, ' ').slice(0, 180);
+}
+
+function bangkokNow() {
+  return new Date().toLocaleString('th-TH', {
+    timeZone: 'Asia/Bangkok',
+    dateStyle: 'short',
+    timeStyle: 'medium',
+  });
+}
+
+function formatAedReportMessage({
+  reportId,
+  aedId,
+  aed,
+  typeLabel,
+  description,
+  reporterName,
+  reporterPhone,
+  request,
+}) {
+  const ipAddress = extractClientIp(request);
+  const networkSegment = toNetworkSegment(ipAddress);
+  const userAgent = compactUserAgent(request.headers.get('user-agent'));
+  const route = [request.method, request.nextUrl?.pathname].filter(Boolean).join(' ');
+
+  return [
+    '🚨 ระบบข้อมูลสุขภาพ สตูล',
+    'แจ้งปัญหาเครื่อง AED',
+    '',
+    'สรุปปัญหา',
+    `• ประเภท: ${typeLabel}`,
+    `• จุดบริการ: ${compact(aed.location_name)}`,
+    `• อำเภอ: ${compact(aed.district_name)}`,
+    description ? `• รายละเอียด: ${description}` : null,
+    '',
+    'ผู้แจ้ง',
+    `• ชื่อ: ${compact(reporterName, 'ไม่ระบุ')}`,
+    `• โทรศัพท์: ${compact(reporterPhone, 'ไม่ระบุ')}`,
+    '',
+    'ผู้ดูแลเครื่อง',
+    `• ชื่อ: ${compact(aed.manager_name, 'ไม่ระบุ')}`,
+    `• โทรศัพท์: ${compact(aed.manager_phone, 'ไม่ระบุ')}`,
+    '',
+    'ต้นทาง',
+    `• IP: ${compact(ipAddress)}`,
+    networkSegment ? `• Network: ${networkSegment}` : null,
+    route ? `• Route: ${route}` : null,
+    userAgent ? `• อุปกรณ์/Browser: ${userAgent}` : null,
+    '',
+    'ควรทำต่อ: ตรวจสอบรายงานในเมนูรายงานปัญหา AED และประสานผู้ดูแลเครื่อง',
+    `เวลา: ${bangkokNow()}`,
+    `Report ID: ${reportId}`,
+    `AED ID: ${aedId}`,
+  ].filter(Boolean).join('\n');
+}
+
 // POST /api/aed/[id]/report — public endpoint (no auth required)
 export async function POST(request, { params }) {
-  const rateLimit = checkRateLimit(request, {
+  const rateLimitOptions = {
     keyPrefix: 'aed-report',
     limit: 5,
     windowMs: 10 * 60 * 1000,
-  });
-  if (rateLimit.limited) return rateLimitResponse(rateLimit);
+  };
+  const rateLimit = checkRateLimit(request, rateLimitOptions);
+  if (rateLimit.limited) {
+    await recordRateLimitEvent({
+      request,
+      ...rateLimitOptions,
+      summary: 'มีการแจ้งปัญหา AED ถี่เกินกำหนด',
+    });
+    return rateLimitResponse(rateLimit);
+  }
 
   try {
     const { id } = await params;
@@ -59,35 +133,26 @@ export async function POST(request, { params }) {
     const chatId = process.env.TELEGRAM_CHAT_ID;
     if (token && chatId) {
       const typeLabel = REPORT_TYPE_LABELS[report_type];
-      const now = new Date().toLocaleString('th-TH', {
-        timeZone: 'Asia/Bangkok',
-        dateStyle: 'short',
-        timeStyle: 'short',
+      const message = formatAedReportMessage({
+        reportId: result.insertId,
+        aedId,
+        aed,
+        typeLabel,
+        description: safeDescription,
+        reporterName: safeReporterName,
+        reporterPhone: safeReporterPhone,
+        request,
       });
-
-      const lines = [
-        '🚨 *แจ้งปัญหาเครื่อง AED*',
-        '',
-        `📍 *สถานที่:* ${escMd(aed.location_name)}`,
-        aed.district_name ? `🏥 *อำเภอ:* ${escMd(aed.district_name)}` : null,
-        `⚠️ *ประเภทปัญหา:* ${escMd(typeLabel)}`,
-        safeDescription   ? `📝 *รายละเอียด:* ${escMd(safeDescription)}` : null,
-        '',
-        safeReporterName || safeReporterPhone
-          ? `👤 *ผู้แจ้ง:* ${escMd(safeReporterName || '-')}${safeReporterPhone ? ` \\(${escMd(safeReporterPhone)}\\)` : ''}`
-          : null,
-        aed.manager_name
-          ? `🔧 *ผู้ดูแลเครื่อง:* ${escMd(aed.manager_name)}${aed.manager_phone ? ` \\(${escMd(aed.manager_phone)}\\)` : ''}`
-          : null,
-        '',
-        `🕐 *เวลา:* ${now}`,
-      ].filter((l) => l !== null).join('\n');
 
       try {
         await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text: lines, parse_mode: 'MarkdownV2' }),
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: message,
+            disable_web_page_preview: true,
+          }),
         });
         await query('UPDATE aed_reports SET notified_at = NOW() WHERE id = ?', [result.insertId]);
       } catch (tgErr) {
@@ -100,10 +165,4 @@ export async function POST(request, { params }) {
     console.error('Report AED error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในระบบ' }, { status: 500 });
   }
-}
-
-// Escape special chars for Telegram MarkdownV2
-function escMd(text) {
-  if (!text) return '';
-  return String(text).replace(/[_*[\]()~`>#+=|{}.!\\-]/g, '\\$&');
 }

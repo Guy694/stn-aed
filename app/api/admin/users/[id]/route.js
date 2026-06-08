@@ -61,6 +61,7 @@ export async function PUT(request, { params }) {
     const [updated] = await query('SELECT id, username, full_name, role FROM users WHERE id = ? LIMIT 1', [id]);
 
     await writeAuditLog({
+      request,
       session,
       action: 'update',
       entityType: 'user',
@@ -108,6 +109,7 @@ export async function PATCH(request, { params }) {
     await query('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, id]);
 
     await writeAuditLog({
+      request,
       session,
       action: 'update',
       entityType: 'user',
@@ -123,7 +125,7 @@ export async function PATCH(request, { params }) {
   }
 }
 
-export async function DELETE(_request, { params }) {
+export async function DELETE(request, { params }) {
   const { session, response } = await requireAdmin();
   if (response) return response;
 
@@ -145,6 +147,7 @@ export async function DELETE(_request, { params }) {
     await query('DELETE FROM users WHERE id = ?', [id]);
 
     await writeAuditLog({
+      request,
       session,
       action: 'delete',
       entityType: 'user',

@@ -46,6 +46,7 @@ export async function POST(request, { params }) {
     );
 
     await writeAuditLog({
+      request,
       session,
       action: 'reject_registration',
       entityType: 'registration_request',

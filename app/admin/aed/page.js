@@ -1,9 +1,9 @@
 'use client';
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch } from '@/app/lib/client-api';
 import Navbar from '@/app/components/Navbar';
 import AEDModal from '@/app/components/AEDModal';
 import AEDPointModal from '@/app/components/AEDPointModal';
@@ -37,10 +37,10 @@ export default function AdminAedPage() {
   const [user, setUser] = useState(null);
   const [subTab, setSubTab] = useState(() => {
     const requestedTab = searchParams.get('tab');
-    return requestedTab === 'facilities' || requestedTab === 'aed' || requestedTab === 'reports'
+    return requestedTab === 'aed' || requestedTab === 'reports'
       ? requestedTab
-      : 'facilities';
-  }); // 'facilities' | 'aed' | 'reports'
+      : 'aed';
+  }); // 'aed' | 'reports'
 
   // Health Facilities
   const [facilities, setFacilities] = useState([]);
@@ -69,19 +69,24 @@ export default function AdminAedPage() {
   // Toast
   const [toast, setToast] = useState(null);
 
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
   // ── Facilities ──────────────────────────────────────
-  async function loadFacilities() {
+  const loadFacilities = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`${BASE}/api/facilities`);
-    const data = await res.json();
-    if (Array.isArray(data)) setFacilities(data);
+    try {
+      const res = await apiFetch(`/api/facilities`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'โหลดข้อมูลหน่วยบริการไม่สำเร็จ');
+      if (Array.isArray(data)) setFacilities(data);
+    } catch (error) {
+      showToast(error?.message || 'โหลดข้อมูลหน่วยบริการไม่สำเร็จ', 'error');
+    }
     setLoading(false);
-  }
+  }, [showToast]);
 
   const handleSave = (saved) => {
     setFacilities((prev) => {
@@ -94,7 +99,7 @@ export default function AdminAedPage() {
   };
 
   const handleDelete = async (id) => {
-    const res = await fetch(`${BASE}/api/facilities/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/facilities/${id}`, { method: 'DELETE' });
     if (res.ok) {
       setFacilities((prev) => prev.filter((f) => f.id !== id));
       showToast('ลบข้อมูลสำเร็จ', 'success');
@@ -129,13 +134,18 @@ export default function AdminAedPage() {
   };
 
   // ── AED Points ──────────────────────────────────────
-  async function loadAedList() {
+  const loadAedList = useCallback(async () => {
     setAedLoading(true);
-    const res = await fetch(`${BASE}/api/aed`);
-    const data = await res.json();
-    if (Array.isArray(data)) setAedList(data);
+    try {
+      const res = await apiFetch(`/api/aed`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'โหลดข้อมูล AED ไม่สำเร็จ');
+      if (Array.isArray(data)) setAedList(data);
+    } catch (error) {
+      showToast(error?.message || 'โหลดข้อมูล AED ไม่สำเร็จ', 'error');
+    }
     setAedLoading(false);
-  }
+  }, [showToast]);
 
   const handleAedSave = (saved) => {
     setAedList((prev) => {
@@ -148,7 +158,7 @@ export default function AdminAedPage() {
   };
 
   const handleAedDelete = async (id) => {
-    const res = await fetch(`${BASE}/api/aed/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/aed/${id}`, { method: 'DELETE' });
     if (res.ok) {
       setAedList((prev) => prev.filter((a) => a.id !== id));
       showToast('ลบจุดบริการ AED สำเร็จ', 'success');
@@ -181,30 +191,32 @@ export default function AdminAedPage() {
     });
 
   // ── Reports ─────────────────────────────────────────
-  async function loadReports() {
+  const loadReports = useCallback(async () => {
     setReportsLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/reports`);
+      const res = await apiFetch(`/api/reports`);
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'โหลดข้อมูลรายงานไม่สำเร็จ');
       if (Array.isArray(data)) setReportsList(data);
-    } catch {}
+    } catch (error) {
+      showToast(error?.message || 'โหลดข้อมูลรายงานไม่สำเร็จ', 'error');
+    }
     setReportsLoading(false);
-  }
+  }, [showToast]);
 
   useEffect(() => {
-    fetch(`${BASE}/api/auth/me`)
+    apiFetch(`/api/auth/me`)
       .then((r) => r.ok ? r.json() : null)
       .then(setUser)
       .catch(() => {});
     queueMicrotask(() => {
-      loadFacilities();
       loadAedList();
       loadReports();
     });
-  }, []);
+  }, [loadAedList, loadReports]);
 
   const handleReportStatus = async (reportId, newStatus) => {
-    const res = await fetch(`${BASE}/api/reports/${reportId}`, {
+    const res = await apiFetch(`/api/reports/${reportId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
@@ -222,7 +234,7 @@ export default function AdminAedPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <Navbar user={user} />
+      {user?.role !== 'admin' && <Navbar user={user} />}
 
       {/* Page Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
@@ -233,24 +245,9 @@ export default function AdminAedPage() {
                 <Zap className="w-5 h-5 text-sky-500" />
                 จัดการ AED
               </h1>
-              <p className="text-sm text-slate-500 mt-0.5">จัดการหน่วยบริการ, จุดติดตั้ง AED และรายงานปัญหา</p>
+              <p className="text-sm text-slate-500 mt-0.5">จัดการจุดติดตั้ง AED และรายงานปัญหา</p>
             </div>
-            <div className="flex items-center gap-2">
-              {subTab === 'facilities' && (
-                <>
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-100">
-                    <Building2 className="w-4 h-4 text-emerald-600" />
-                    <span className="text-sm font-semibold text-emerald-600">{facilities.length}</span>
-                    <span className="text-xs text-slate-600">หน่วยบริการ</span>
-                  </div>
-                  <button onClick={loadFacilities} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 transition-all shadow-sm" title="รีเฟรช">
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button onClick={() => setModal({ open: true, facility: null })} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-400 hover:to-teal-500 transition-all shadow-md">
-                    <Plus className="w-4 h-4" />เพิ่มหน่วยบริการ
-                  </button>
-                </>
-              )}
+            <div className="flex flex-wrap items-center gap-2">
               {subTab === 'aed' && (
                 <>
                   <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-sky-50 border border-sky-100">
@@ -268,7 +265,7 @@ export default function AdminAedPage() {
                   <button onClick={loadAedList} className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 transition-all shadow-sm" title="รีเฟรช">
                     <RefreshCw className={`w-4 h-4 ${aedLoading ? 'animate-spin' : ''}`} />
                   </button>
-                  <button onClick={() => setAedModal({ open: true, aed: null })} className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-400 hover:to-sky-500 transition-all shadow-md">
+                  <button onClick={() => setAedModal({ open: true, aed: null })} className="flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-sky-500">
                     <Plus className="w-4 h-4" />เพิ่ม AED
                   </button>
                 </>
@@ -291,7 +288,6 @@ export default function AdminAedPage() {
           {/* Sub-tabs */}
           <div className="flex gap-1 bg-slate-100 rounded-xl p-1 w-fit">
             {[
-              { key: 'facilities', icon: Building2, label: 'หน่วยบริการสาธารณสุข' },
               { key: 'aed', icon: Zap, label: 'จุดบริการ AED', badge: noCoordCount > 0 ? noCoordCount : null },
               { key: 'reports', icon: Bell, label: 'รายงานปัญหา', badge: pendingReports > 0 ? pendingReports : null },
             ].map(({ key, icon: Icon, label, badge }) => (
@@ -324,12 +320,30 @@ export default function AdminAedPage() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ, อำเภอ, ตำบล..." className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all text-sm shadow-sm" />
+                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหาชื่อ, อำเภอ, ตำบล..." className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all text-sm shadow-sm" />
                 {search && <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800"><X className="w-3.5 h-3.5" /></button>}
               </div>
               <div className="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-sm">
-                <button onClick={() => setActiveTab('table')} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === 'table' ? 'bg-sky-500 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>ตาราง</button>
-                <button onClick={() => setActiveTab('map')} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === 'map' ? 'bg-sky-500 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>แผนที่</button>
+                <button
+                  onClick={() => setActiveTab('table')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    activeTab === 'table'
+                      ? 'bg-sky-600 text-white'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  ตาราง
+                </button>
+                <button
+                  onClick={() => setActiveTab('map')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    activeTab === 'map'
+                      ? 'bg-sky-600 text-white'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  แผนที่
+                </button>
               </div>
               {search && <span className="text-xs text-slate-500">แสดง {filtered.length} / {facilities.length} รายการ</span>}
             </div>
@@ -346,11 +360,11 @@ export default function AdminAedPage() {
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50">
                           {[{ key: 'id', label: '#' }, { key: 'name', label: 'ชื่อหน่วยบริการ' }, { key: 'typecode', label: 'ประเภท' }, { key: 'district_name', label: 'อำเภอ' }, { key: 'tambon', label: 'ตำบล' }, { key: 'lat', label: 'พิกัด' }, { key: 'is_active', label: 'สถานะ' }].map(({ key, label }) => (
-                            <th key={key} onClick={() => toggleSort(key)} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-slate-900 select-none">
+                            <th key={key} onClick={() => toggleSort(key)} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 cursor-pointer hover:text-slate-900 select-none">
                               <div className="flex items-center gap-1">{label}<SortIcon col={key} /></div>
                             </th>
                           ))}
-                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-24">จัดการ</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 w-24">จัดการ</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -374,7 +388,7 @@ export default function AdminAedPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center justify-center gap-1">
                                 <button onClick={() => setModal({ open: true, facility: f })} className="w-7 h-7 rounded-lg bg-sky-50 hover:bg-sky-100 flex items-center justify-center text-sky-600 border border-sky-100" title="แก้ไข"><Pencil className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => setDeleteConfirm(f)} className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-600 border border-red-100" title="ลบ"><Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
@@ -402,13 +416,31 @@ export default function AdminAedPage() {
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input type="text" value={aedSearch} onChange={(e) => setAedSearch(e.target.value)} placeholder="ค้นหาชื่อ, อำเภอ, ตำบล..." className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all text-sm shadow-sm" />
+                <input type="text" value={aedSearch} onChange={(e) => setAedSearch(e.target.value)} placeholder="ค้นหาชื่อ, อำเภอ, ตำบล..." className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all text-sm shadow-sm" />
                 {aedSearch && <button onClick={() => setAedSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800"><X className="w-3.5 h-3.5" /></button>}
               </div>
               {aedSearch && <span className="text-xs text-slate-500">แสดง {filteredAed.length} / {aedList.length} รายการ</span>}
               <div className="flex items-center bg-white rounded-xl p-1 border border-slate-200 shadow-sm ml-auto">
-                <button onClick={() => setAedActiveTab('table')} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${aedActiveTab === 'table' ? 'bg-sky-500 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>ตาราง</button>
-                <button onClick={() => setAedActiveTab('map')} className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${aedActiveTab === 'map' ? 'bg-sky-500 text-white' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>แผนที่</button>
+                <button
+                  onClick={() => setAedActiveTab('table')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    aedActiveTab === 'table'
+                      ? 'bg-sky-600 text-white'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  ตาราง
+                </button>
+                <button
+                  onClick={() => setAedActiveTab('map')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    aedActiveTab === 'map'
+                      ? 'bg-sky-600 text-white'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  แผนที่
+                </button>
               </div>
             </div>
 
@@ -424,14 +456,14 @@ export default function AdminAedPage() {
                       <thead>
                         <tr className="border-b border-slate-200 bg-slate-50">
                           {[{ key: 'id', label: '#' }, { key: 'location_name', label: 'ชื่อจุดบริการ' }, { key: 'manager_typecode', label: 'ประเภท' }, { key: 'district_name', label: 'อำเภอ' }, { key: 'tambon_name', label: 'ตำบล' }, { key: 'lat', label: 'พิกัด' }, { key: 'coordinate_source', label: 'แหล่งพิกัด' }, { key: 'is_active', label: 'สถานะ' }].map(({ key, label }) => (
-                            <th key={key} onClick={() => toggleAedSort(key)} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:text-slate-900 select-none">
+                            <th key={key} onClick={() => toggleAedSort(key)} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 cursor-pointer hover:text-slate-900 select-none">
                               <div className="flex items-center gap-1">
                                 {label}
                                 {aedSortBy === key ? aedSortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-sky-400" /> : <ChevronDown className="w-3 h-3 text-sky-400" /> : <ChevronDown className="w-3 h-3 opacity-30" />}
                               </div>
                             </th>
                           ))}
-                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">จัดการ</th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 w-20">จัดการ</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -467,7 +499,7 @@ export default function AdminAedPage() {
                                 </span>
                               </td>
                               <td className="px-4 py-3">
-                                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="flex items-center justify-center gap-1">
                                   <button onClick={() => setAedModal({ open: true, aed: a })} className="w-7 h-7 rounded-lg bg-sky-50 hover:bg-sky-100 flex items-center justify-center text-sky-600 border border-sky-100" title="แก้ไข"><Pencil className="w-3.5 h-3.5" /></button>
                                   <button onClick={() => setAedDeleteConfirm(a)} className="w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center text-red-600 border border-red-100" title="ลบ"><Trash2 className="w-3.5 h-3.5" /></button>
                                 </div>
@@ -606,7 +638,7 @@ export default function AdminAedPage() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-[4000] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-medium ${toast.type === 'success' ? 'bg-emerald-500/90 border-emerald-400/30 text-white backdrop-blur-xl' : 'bg-red-500/90 border-red-400/30 text-white backdrop-blur-xl'}`}>
+        <div className={`fixed bottom-6 right-6 z-[4000] flex items-center gap-3 rounded-2xl border bg-white px-5 py-3.5 text-sm font-medium shadow-xl ${toast.type === 'success' ? 'border-emerald-200 text-emerald-800' : 'border-red-200 text-red-800'}`}>
           {toast.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
           {toast.message}
         </div>

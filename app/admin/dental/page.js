@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Navbar from '@/app/components/Navbar';
 import DentalModal from '@/app/components/DentalModal';
 import {
@@ -7,7 +7,7 @@ import {
   AlertCircle, CheckCircle, Stethoscope, AlertTriangle,
 } from 'lucide-react';
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch } from '@/app/lib/client-api';
 
 function isDentalActive(status) {
   return status === true || status === 1 || status === '1' || status === 'active';
@@ -22,28 +22,31 @@ export default function AdminDentalPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [toast, setToast] = useState(null);
 
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
-  };
+  }, []);
 
-  async function loadList() {
+  const loadList = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE}/api/dental`);
+      const res = await apiFetch(`/api/dental`);
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'โหลดข้อมูลทันตกรรมไม่สำเร็จ');
       if (Array.isArray(data)) setList(data);
-    } catch {}
+    } catch (error) {
+      showToast(error?.message || 'โหลดข้อมูลทันตกรรมไม่สำเร็จ', 'error');
+    }
     setLoading(false);
-  }
+  }, [showToast]);
 
   useEffect(() => {
-    fetch(`${BASE}/api/auth/me`)
+    apiFetch(`/api/auth/me`)
       .then((r) => r.ok ? r.json() : null)
       .then(setUser)
       .catch(() => {});
     queueMicrotask(loadList);
-  }, []);
+  }, [loadList]);
 
   const handleSave = (saved) => {
     setList((prev) => {
@@ -56,7 +59,7 @@ export default function AdminDentalPage() {
   };
 
   const handleDelete = async (id) => {
-    const res = await fetch(`${BASE}/api/dental/${id}`, { method: 'DELETE' });
+    const res = await apiFetch(`/api/dental/${id}`, { method: 'DELETE' });
     if (res.ok) {
       setList((prev) => prev.filter((d) => d.id !== id));
       showToast('ลบข้อมูลทันตกรรมสำเร็จ', 'success');
@@ -75,11 +78,11 @@ export default function AdminDentalPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
-      <Navbar user={user} />
+      {user?.role !== 'admin' && <Navbar user={user} />}
 
       {/* Header */}
       <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
           <div className="flex-1">
             <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Stethoscope className="w-5 h-5 text-violet-500" />
@@ -102,7 +105,7 @@ export default function AdminDentalPage() {
             </button>
             <button
               onClick={() => setModal({ open: true, dental: null })}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-400 hover:to-purple-500 transition-all shadow-md"
+              className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-violet-500"
             >
               <Plus className="w-4 h-4" />
               เพิ่มหน่วยทันตกรรม
@@ -122,7 +125,7 @@ export default function AdminDentalPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="ค้นหาชื่อ, อำเภอ, ตำบล..."
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all text-sm shadow-sm"
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-500 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all text-sm shadow-sm"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-800">
@@ -155,11 +158,11 @@ export default function AdminDentalPage() {
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50">
                     {['#', 'ชื่อหน่วยบริการ', 'อำเภอ', 'ตำบล', 'เก้าอี้', 'พร้อมใช้', 'วันให้บริการ', 'พิกัด', 'สถานะ'].map((label) => (
-                      <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                      <th key={label} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 whitespace-nowrap">
                         {label}
                       </th>
                     ))}
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 uppercase tracking-wider w-20">จัดการ</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-500 w-20">จัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -168,7 +171,7 @@ export default function AdminDentalPage() {
                       <td className="px-4 py-3 text-slate-400 font-mono text-xs">{d.id}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                          <div className="w-7 h-7 rounded-lg bg-violet-600 flex items-center justify-center flex-shrink-0">
                             <Stethoscope className="w-3.5 h-3.5 text-white" />
                           </div>
                           <span className="font-semibold text-slate-900 text-sm leading-tight">{d.facility_name}</span>
@@ -203,7 +206,7 @@ export default function AdminDentalPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => setModal({ open: true, dental: d })}
                             className="w-7 h-7 rounded-lg bg-violet-50 hover:bg-violet-100 flex items-center justify-center text-violet-600 border border-violet-100"
@@ -261,7 +264,7 @@ export default function AdminDentalPage() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-[4000] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-medium ${toast.type === 'success' ? 'bg-emerald-500/90 border-emerald-400/30 text-white backdrop-blur-xl' : 'bg-red-500/90 border-red-400/30 text-white backdrop-blur-xl'}`}>
+        <div className={`fixed bottom-6 right-6 z-[4000] flex items-center gap-3 rounded-2xl border bg-white px-5 py-3.5 text-sm font-medium shadow-xl ${toast.type === 'success' ? 'border-emerald-200 text-emerald-800' : 'border-red-200 text-red-800'}`}>
           {toast.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
           {toast.message}
         </div>

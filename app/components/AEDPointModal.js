@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch } from '@/app/lib/client-api';
 import dynamic from 'next/dynamic';
 import { X, Save, Crosshair, MapPin, Plus } from 'lucide-react';
 
@@ -78,8 +78,8 @@ export default function AEDPointModal({ aed, onClose, onSave }) {
         lon: form.lon !== '' ? parseFloat(form.lon) : null,
         is_active: Number(form.is_active),
       };
-      const res = await fetch(
-        isEdit ? `${BASE}/api/aed/${aed.id}` : `${BASE}/api/aed`,
+      const res = await apiFetch(
+        isEdit ? `/api/aed/${aed.id}` : '/api/aed',
         {
           method: isEdit ? 'PUT' : 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -296,4 +296,3 @@ export default function AEDPointModal({ aed, onClose, onSave }) {
     </div>
   );
 }
-

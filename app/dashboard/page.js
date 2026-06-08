@@ -1,8 +1,13 @@
 'use client';
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch } from '@/app/lib/client-api';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import AdminSidebar from '@/app/components/AdminSidebar';
+import AdminNavbar from '@/app/components/AdminNavbar';
+import StaffModuleSidebar from '@/app/components/StaffModuleSidebar';
+import { getModuleTheme, getStaffModuleByKey } from '@/app/lib/modules';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, RadialBarChart, RadialBar,
@@ -38,28 +43,28 @@ const COORD_LABEL = {
 
 // ─── Helpers ──────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, sub, color = 'sky', warn = false }) {
-  const bg = {
-    sky:     'from-sky-500 to-sky-600',
-    emerald: 'from-emerald-500 to-teal-600',
-    red:     'from-red-500 to-rose-600',
-    amber:   'from-amber-500 to-orange-500',
-    violet:  'from-violet-500 to-purple-600',
-    cyan:    'from-cyan-500 to-sky-600',
-    fuchsia: 'from-fuchsia-500 to-purple-500',
-    teal:    'from-teal-500 to-emerald-600',
+  const tone = {
+    sky:     'bg-sky-50 text-sky-700 border-sky-200',
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    red:     'bg-red-50 text-red-700 border-red-200',
+    amber:   'bg-amber-50 text-amber-700 border-amber-200',
+    violet:  'bg-violet-50 text-violet-700 border-violet-200',
+    cyan:    'bg-cyan-50 text-cyan-700 border-cyan-200',
+    fuchsia: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200',
+    teal:    'bg-teal-50 text-teal-700 border-teal-200',
   }[color];
   return (
-    <div className={`bg-gradient-to-br ${bg} rounded-2xl p-5 text-white shadow-xl flex items-start gap-4`}>
-      <div className="w-11 h-11 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-        <Icon className="w-5 h-5 text-white" />
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex items-start gap-4">
+      <div className={`w-11 h-11 rounded-xl border flex items-center justify-center flex-shrink-0 ${tone}`}>
+        <Icon className="w-5 h-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-white/70 text-xs font-semibold uppercase tracking-wide truncate">{label}</p>
-        <p className="text-3xl font-black leading-none mt-1">{value?.toLocaleString()}</p>
-        {sub && <p className="text-white/60 text-xs mt-1">{sub}</p>}
+        <p className="text-xs font-semibold text-slate-500 truncate">{label}</p>
+        <p className="text-3xl font-black leading-none mt-1 text-slate-950">{value?.toLocaleString()}</p>
+        {sub && <p className="text-xs leading-5 text-slate-500 mt-1">{sub}</p>}
       </div>
       {warn && (
-        <AlertTriangle className="w-5 h-5 text-white/80 flex-shrink-0 mt-1" />
+        <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-1" />
       )}
     </div>
   );
@@ -74,14 +79,14 @@ function ChartCard({ title, children, className = '' }) {
   );
 }
 
-function SectionHeader({ id, icon: Icon, kicker, title, description, gradient }) {
+function SectionHeader({ id, icon: Icon, kicker, title, description, tone }) {
   return (
     <div id={id} className="scroll-mt-24 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-lg`}>
+      <div className={`w-10 h-10 rounded-xl ${tone} flex items-center justify-center shadow-sm`}>
         <Icon className="w-5 h-5 text-white" />
       </div>
       <div>
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">{kicker}</p>
+        <p className="text-xs font-semibold text-slate-500">{kicker}</p>
         <h2 className="text-lg font-black text-slate-900">{title}</h2>
         <p className="text-xs text-slate-500">{description}</p>
       </div>
@@ -89,15 +94,15 @@ function SectionHeader({ id, icon: Icon, kicker, title, description, gradient })
   );
 }
 
-function TopicNavCard({ href, icon: Icon, title, description, gradient }) {
+function TopicNavCard({ href, icon: Icon, title, description, tone, bar }) {
   return (
     <a
       href={href}
-      className="group relative overflow-hidden rounded-3xl border border-white/70 bg-white p-4 shadow-xl transition-all hover:-translate-y-1 hover:shadow-2xl"
+      className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md"
     >
-      <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${gradient}`} />
+      <div className={`absolute inset-x-0 top-0 h-1.5 ${bar}`} />
       <div className="flex items-start gap-3">
-        <div className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white shadow-lg`}>
+        <div className={`w-11 h-11 rounded-xl ${tone} flex items-center justify-center text-white shadow-sm`}>
           <Icon className="w-5 h-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -154,21 +159,26 @@ function ShortTick({ x, y, payload, maxLen = 8 }) {
 
 // ─── Main page ─────────────────────────────────────────────────
 export default function DashboardPage() {
-  const [user, setUser] = useState(null);
+  const searchParams = useSearchParams();
+  const [user, setUser] = useState(undefined);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const requestedModule = searchParams.get('module');
+  const dashboardModule = ['aed', 'dental', 'health-stations'].includes(requestedModule)
+    ? requestedModule
+    : null;
 
   // Filters
   const [filterDistrict, setFilterDistrict] = useState('');
   const [filterSource, setFilterSource] = useState('');
   const stats = useMemo(() => data?.totalStats || {}, [data]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${BASE}/api/dashboard`);
+      const res = await apiFetch(`/api/dashboard${dashboardModule ? `?module=${dashboardModule}` : ''}`);
       if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
       setData(await res.json());
     } catch (e) {
@@ -176,22 +186,28 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dashboardModule]);
+
   useEffect(() => {
     queueMicrotask(() => {
-      fetch(`${BASE}/api/auth/me`)
+      apiFetch(`/api/auth/me`)
         .then((r) => (r.ok ? r.json() : null))
         .then(setUser)
-        .catch(() => {});
+        .catch(() => setUser(null));
       load();
     });
-  }, []);
+  }, [load]);
 
   // ── Derived: districts list ──
   const allDistricts = useMemo(() => {
     if (!data) return [];
-    return [...new Set(data.aedByDistrict.map((d) => d.name).filter(Boolean))].sort();
-  }, [data]);
+    const sourceRows = dashboardModule === 'dental'
+      ? data.dentalByDistrict
+      : dashboardModule === 'health-stations'
+        ? data.hsByDistrict
+        : data.aedByDistrict;
+    return [...new Set((sourceRows || []).map((d) => d.name).filter(Boolean))].sort();
+  }, [data, dashboardModule]);
 
   const allSources = useMemo(() => {
     if (!data) return [];
@@ -280,7 +296,7 @@ export default function DashboardPage() {
     ];
   }, [stats]);
 
-  if (loading) {
+  if (loading || user === undefined) {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
@@ -306,101 +322,177 @@ export default function DashboardPage() {
   }
 
   const s = stats;
+  const isAdmin = user?.role === 'admin';
+  const isStaff = Boolean(user?.role && user.role !== 'admin');
+  const modulePermissionByDashboard = {
+    aed: 'manage_aed',
+    dental: 'manage_dental',
+    'health-stations': 'manage_health_stations',
+  };
+  const canOpenFullDashboard = isAdmin || Boolean(user?.modulePermissions?.dashboard);
+  const canOpenModuleDashboard = isAdmin || (
+    dashboardModule &&
+    Boolean(user?.modulePermissions?.[modulePermissionByDashboard[dashboardModule]])
+  );
+  const canViewDashboard = dashboardModule ? canOpenModuleDashboard || canOpenFullDashboard : canOpenFullDashboard;
+  const showAed = !dashboardModule || dashboardModule === 'aed';
+  const showDental = !dashboardModule || dashboardModule === 'dental';
+  const showHealthStations = !dashboardModule || dashboardModule === 'health-stations';
+  const dashboardTitle = dashboardModule === 'aed'
+    ? 'Dashboard AED'
+    : dashboardModule === 'dental'
+      ? 'Dashboard ทันตกรรม'
+      : dashboardModule === 'health-stations'
+        ? 'Dashboard Health Station'
+        : 'Dashboard ข้อมูลสุขภาพ สตูล';
+  const dashboardDescription = dashboardModule
+    ? 'แสดงข้อมูลเฉพาะโมดูลที่เลือก'
+    : 'แยกข้อมูลตามหัวข้อ AED, ทันตกรรม และ Health Station';
+  const staffModuleKey = dashboardModule === 'aed' && user?.modulePermissions?.manage_aed
+    ? 'manage_aed'
+    : dashboardModule === 'dental' && user?.modulePermissions?.manage_dental
+      ? 'manage_dental'
+      : dashboardModule === 'health-stations' && user?.modulePermissions?.manage_health_stations
+        ? 'manage_health_stations'
+        : 'dashboard';
+  const staffModuleConfig = isStaff ? getStaffModuleByKey(staffModuleKey) : null;
+  const returnHref = isAdmin ? '/admin' : isStaff ? '/staff' : '/map';
+  const returnTitle = isAdmin
+    ? 'กลับหน้า Admin'
+    : isStaff
+      ? 'กลับหน้า Workspace เจ้าหน้าที่'
+      : 'กลับหน้าแผนที่';
+
+  if (isStaff && !canViewDashboard) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="mx-auto flex min-h-screen max-w-xl items-center justify-center px-4">
+          <div className="rounded-2xl border border-amber-200 bg-white p-6 text-center shadow-sm">
+            <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
+            <h1 className="mt-3 text-xl font-bold text-slate-900">ยังไม่มีสิทธิ์เข้า Dashboard นี้</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              กรุณากลับไปเลือกโมดูลที่ได้รับสิทธิ์ หรือขอให้แอดมินเปิดสิทธิ์เพิ่มเติม
+            </p>
+            <Link
+              href="/staff"
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+            >
+              กลับหน้าโมดูลของฉัน
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {isAdmin && <AdminSidebar />}
+      {isStaff && staffModuleConfig && (
+        <div className="p-4 md:p-6 lg:p-0">
+          <StaffModuleSidebar
+            moduleConfig={staffModuleConfig}
+            theme={getModuleTheme(staffModuleKey)}
+            permissions={user.modulePermissions || {}}
+          />
+        </div>
+      )}
+      <div className={isAdmin ? 'ml-64 min-h-screen' : isStaff ? 'lg:ml-72 min-h-screen' : 'min-h-screen'}>
+      {isAdmin && <AdminNavbar user={user} />}
       {/* ── Navbar ── */}
-      <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-2xl border-b border-slate-200 shadow-sm px-6 py-3">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+      <div className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-xl md:px-6">
+        <div className="mx-auto flex max-w-[1600px] flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
             <Link
-              href={user?.role && user.role !== 'admin' ? '/staff/module/dashboard' : '/map'}
-              className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-all"
-              title={user?.role && user.role !== 'admin' ? 'กลับหน้า Workspace เจ้าหน้าที่' : 'กลับหน้าแผนที่'}
+              href={returnHref}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition-all hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              title={returnTitle}
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 flex items-center justify-center shadow">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-600 shadow-sm">
                 <BarChart2 className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <p className="text-sm font-bold text-slate-900 leading-tight">Dashboard ข้อมูลสุขภาพ สตูล</p>
-                <p className="text-xs text-slate-500">แยกข้อมูลตามหัวข้อ AED, ทันตกรรม และ Health Station</p>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-bold leading-tight text-slate-900">{dashboardTitle}</p>
+                <p className="truncate text-xs text-slate-500">{dashboardDescription}</p>
               </div>
             </div>
           </div>
 
           {/* Filter bar */}
-          <div className="flex items-center gap-3 flex-1 justify-center max-w-xl">
-            <Filter className="w-4 h-4 text-slate-400 flex-shrink-0" />
-            <div className="relative flex-1">
+          <div className="grid w-full grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto] xl:max-w-xl xl:flex-1">
+            <div className="relative">
+              <Filter className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <select
                 value={filterDistrict}
                 onChange={(e) => setFilterDistrict(e.target.value)}
-                className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-3 pr-7 py-2 text-xs text-slate-700 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-all shadow-sm"
+                className="min-h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-9 py-2 text-xs text-slate-700 shadow-sm transition-all focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
               >
                 <option value="">ทุกอำเภอ</option>
                 {allDistricts.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
             </div>
-            <div className="relative flex-1">
+            {showAed && <div className="relative">
               <select
                 value={filterSource}
                 onChange={(e) => setFilterSource(e.target.value)}
-                className="w-full appearance-none bg-white border border-slate-200 rounded-xl px-3 pr-7 py-2 text-xs text-slate-700 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 transition-all shadow-sm"
+                className="min-h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 pr-7 text-xs text-slate-700 shadow-sm transition-all focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400"
               >
                 <option value="">ทุกแหล่งข้อมูล</option>
                 {allSources.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-            </div>
-            {(filterDistrict || filterSource) && (
+            </div>}
+            {(filterDistrict || (showAed && filterSource)) && (
               <button
                 onClick={() => { setFilterDistrict(''); setFilterSource(''); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 text-red-600 border border-red-200 text-xs font-medium hover:bg-red-100 transition-all flex-shrink-0"
+                className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition-all hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
               >
                 <X className="w-3.5 h-3.5" />ล้างฟิลเตอร์
               </button>
             )}
           </div>
 
-          <button
-            onClick={load}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-50 border border-sky-200 text-sky-700 text-xs font-semibold hover:bg-sky-100 transition-all flex-shrink-0"
-          >
-            <RefreshCw className="w-3.5 h-3.5" />
-            รีเฟรช
-          </button>
-          {user?.role && user.role !== 'admin' && (
-            <Link
-              href="/staff"
-              className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-950 text-white text-xs font-semibold hover:bg-slate-800 transition-all flex-shrink-0"
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={load}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-semibold text-sky-700 transition-all hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              โมดูลของฉัน
-            </Link>
-          )}
+              <RefreshCw className="w-3.5 h-3.5" />
+              รีเฟรช
+            </button>
+            {isStaff && (
+              <Link
+                href="/staff"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+            >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                โมดูลของฉัน
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-6">
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          <TopicNavCard href="#aed" icon={Heart} title="AED" description="จุดบริการ AED, สถานะใช้งาน, พิกัด และจำนวนเครื่อง" gradient="from-sky-500 via-cyan-500 to-blue-700" />
-          <TopicNavCard href="#facilities" icon={Building2} title="หน่วยบริการ" description="หน่วยบริการสาธารณสุข แยกตามประเภทและอำเภอ" gradient="from-indigo-500 via-blue-500 to-cyan-700" />
-          <TopicNavCard href="#dental" icon={Stethoscope} title="ทันตกรรม" description="หน่วยทันตกรรมและความพร้อมของยูนิต" gradient="from-violet-500 via-fuchsia-500 to-purple-700" />
-          <TopicNavCard href="#health-stations" icon={RadioTower} title="Health Station" description="สถานีสุขภาพชุมชนและสถานะเปิดบริการ" gradient="from-emerald-500 via-teal-500 to-cyan-700" />
-        </section>
+        {!dashboardModule && <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          <TopicNavCard href="#aed" icon={Heart} title="AED" description="จุดบริการ AED, สถานะใช้งาน, พิกัด และจำนวนเครื่อง" tone="bg-sky-600" bar="bg-sky-600" />
+          <TopicNavCard href="#facilities" icon={Building2} title="หน่วยบริการ" description="หน่วยบริการสาธารณสุข แยกตามประเภทและอำเภอ" tone="bg-blue-700" bar="bg-blue-700" />
+          <TopicNavCard href="#dental" icon={Stethoscope} title="ทันตกรรม" description="หน่วยทันตกรรมและความพร้อมของยูนิต" tone="bg-violet-600" bar="bg-violet-600" />
+          <TopicNavCard href="#health-stations" icon={RadioTower} title="Health Station" description="สถานีสุขภาพชุมชนและสถานะเปิดบริการ" tone="bg-teal-600" bar="bg-teal-600" />
+        </section>}
 
-        <section className="space-y-5">
+        {showAed && <section className="space-y-5">
           <SectionHeader
             id="aed"
             icon={Heart}
             kicker="AED"
             title="ข้อมูล AED"
             description="แสดงเฉพาะข้อมูลจุดบริการ AED และสถานะเครื่อง"
-            gradient="from-sky-500 via-cyan-500 to-blue-700"
+            tone="bg-sky-600"
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -614,13 +706,14 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Row 5: Health facilities ── */}
+        {!dashboardModule && <>
         <SectionHeader
           id="facilities"
           icon={Building2}
           kicker="Facilities"
           title="ข้อมูลหน่วยบริการสาธารณสุข"
           description="แสดงเฉพาะจำนวนหน่วยบริการ แยกตามประเภทและอำเภอ"
-          gradient="from-indigo-500 via-blue-500 to-cyan-700"
+          tone="bg-blue-700"
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -671,6 +764,7 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </ChartCard>
         </div>
+        </>}
 
         {/* ── Row 6: Detail tables ── */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
@@ -763,17 +857,17 @@ export default function DashboardPage() {
         <p className="text-center text-xs text-slate-400 pb-4">
           ระบบ AED จังหวัดสตูล · ข้อมูล ณ วันที่นำเข้าล่าสุด
         </p>
-        </section>
+        </section>}
 
         {/* ── Row 7: Dental section ── */}
-        <section className="space-y-5">
+        {showDental && <section className="space-y-5">
           <SectionHeader
             id="dental"
             icon={Stethoscope}
             kicker="Dental"
             title="ข้อมูลทันตกรรม"
             description="แสดงเฉพาะข้อมูลหน่วยทันตกรรมและความพร้อมของยูนิต"
-            gradient="from-violet-500 via-fuchsia-500 to-purple-700"
+            tone="bg-violet-600"
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -864,17 +958,17 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </section>
+        </section>}
 
         {/* ── Row 8: Health Station section ── */}
-        <section className="space-y-5">
+        {showHealthStations && <section className="space-y-5">
           <SectionHeader
             id="health-stations"
             icon={RadioTower}
             kicker="Health Station"
             title="ข้อมูล Health Station"
             description="แสดงเฉพาะข้อมูลสถานี Health Station และสถานะเปิดบริการ"
-            gradient="from-emerald-500 via-teal-500 to-cyan-700"
+            tone="bg-teal-600"
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -963,11 +1057,12 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        </section>
+        </section>}
 
         <p className="text-center text-xs text-slate-400 pb-4">
           ระบบข้อมูลสุขภาพ สตูล · ข้อมูล ณ วันที่นำเข้าล่าสุด
         </p>
+      </div>
       </div>
     </div>
   );

@@ -19,7 +19,7 @@ export async function GET(request) {
 
     const rows = filterStatus === 'all'
       ? await query(
-          `SELECT r.id, r.source, r.line_user_id, r.username, r.full_name, r.phone, r.position_name,
+          `SELECT r.id, r.source, r.line_user_id, r.username, r.full_name, r.email, r.phone, r.position_name,
                   r.facility_name, r.note, r.status, r.reviewed_at, r.created_at, r.user_id,
                   reviewer.username AS reviewed_by_username
            FROM staff_registration_requests r
@@ -27,7 +27,7 @@ export async function GET(request) {
            ORDER BY r.created_at DESC`,
         )
       : await query(
-          `SELECT r.id, r.source, r.line_user_id, r.username, r.full_name, r.phone, r.position_name,
+          `SELECT r.id, r.source, r.line_user_id, r.username, r.full_name, r.email, r.phone, r.position_name,
                   r.facility_name, r.note, r.status, r.reviewed_at, r.created_at, r.user_id,
                   reviewer.username AS reviewed_by_username
            FROM staff_registration_requests r

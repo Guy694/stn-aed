@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { query } from '@/app/lib/db';
+import { recordWriteActivity } from '@/app/lib/security-events';
 
 let auditTableReady = false;
 
@@ -30,7 +31,7 @@ export async function ensureAuditLogTable() {
   auditTableReady = true;
 }
 
-export async function writeAuditLog({ session, action, entityType, entityId = null, summary = null, metadata = null }) {
+export async function writeAuditLog({ request = null, session, action, entityType, entityId = null, summary = null, metadata = null }) {
   try {
     await ensureAuditLogTable();
 
@@ -56,6 +57,16 @@ export async function writeAuditLog({ session, action, entityType, entityId = nu
         metadata ? JSON.stringify(metadata) : null,
       ],
     );
+
+    await recordWriteActivity({
+      request,
+      session,
+      action,
+      entityType,
+      entityId,
+      summary,
+      metadata,
+    });
   } catch (error) {
     console.error('Admin audit log error:', error);
   }

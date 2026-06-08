@@ -65,6 +65,7 @@ export async function PUT(request, { params }) {
 
     const [updated] = await query('SELECT * FROM dental_units WHERE id = ?', [id]);
     await writeAuditLog({
+      request,
       session,
       action: 'update',
       entityType: 'dental_unit',
@@ -81,7 +82,7 @@ export async function PUT(request, { params }) {
 }
 
 // DELETE /api/dental/[id]
-export async function DELETE(_req, { params }) {
+export async function DELETE(request, { params }) {
   const { session, response } = await requireModuleAccess('manage_dental');
   if (response) return response;
 
@@ -90,6 +91,7 @@ export async function DELETE(_req, { params }) {
     const [existing] = await query('SELECT facility_name FROM dental_units WHERE id = ?', [id]);
     await query('DELETE FROM dental_units WHERE id = ?', [id]);
     await writeAuditLog({
+      request,
       session,
       action: 'delete',
       entityType: 'dental_unit',

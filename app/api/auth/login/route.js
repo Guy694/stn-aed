@@ -3,12 +3,30 @@ import bcrypt from 'bcryptjs';
 import { query } from '@/app/lib/db';
 import { createSession } from '@/app/lib/session';
 import { ensureRegistrationRequestTable } from '@/app/lib/registration-requests';
+import { checkRateLimit, rateLimitResponse } from '@/app/lib/rate-limit';
+import { recordLoginFailure, recordRateLimitEvent } from '@/app/lib/security-events';
 
 export async function POST(request) {
+  const rateLimitOptions = {
+    keyPrefix: 'auth-login',
+    limit: 20,
+    windowMs: 10 * 60 * 1000,
+  };
+  const rateLimit = checkRateLimit(request, rateLimitOptions);
+  if (rateLimit.limited) {
+    await recordRateLimitEvent({
+      request,
+      ...rateLimitOptions,
+      summary: 'มีการพยายามเข้าสู่ระบบถี่เกินกำหนด',
+    });
+    return rateLimitResponse(rateLimit);
+  }
+
   try {
     const { username, password } = await request.json();
 
     if (!username || !password) {
+      await recordLoginFailure({ request, username, reason: 'missing_credentials' });
       return NextResponse.json(
         { error: 'กรุณากรอก username และ password' },
         { status: 400 }
@@ -31,12 +49,14 @@ export async function POST(request) {
       );
 
       if (pending.length > 0) {
+        await recordLoginFailure({ request, username, reason: 'pending_registration' });
         return NextResponse.json(
           { error: 'บัญชีนี้กำลังรอแอดมินอนุมัติ' },
           { status: 403 },
         );
       }
 
+      await recordLoginFailure({ request, username, reason: 'unknown_username' });
       return NextResponse.json(
         { error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' },
         { status: 401 }
@@ -47,6 +67,7 @@ export async function POST(request) {
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!passwordMatch) {
+      await recordLoginFailure({ request, username, reason: 'invalid_password' });
       return NextResponse.json(
         { error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' },
         { status: 401 }

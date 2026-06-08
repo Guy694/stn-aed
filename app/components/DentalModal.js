@@ -3,7 +3,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { X, Stethoscope, AlertCircle } from 'lucide-react';
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch } from '@/app/lib/client-api';
 const MapView = dynamic(() => import('./MapView'), { ssr: false });
 const THAILAND_BOUNDS = {
   minLat: 5.5,
@@ -142,9 +142,9 @@ export default function DentalModal({ dental, onClose, onSave }) {
         status: form.status ? 1 : 0,
       };
 
-      const url = isEdit ? `${BASE}/api/dental/${dental.id}` : `${BASE}/api/dental`;
+      const url = isEdit ? `/api/dental/${dental.id}` : '/api/dental';
       const method = isEdit ? 'PUT' : 'POST';
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -172,7 +172,7 @@ export default function DentalModal({ dental, onClose, onSave }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center">
               <Stethoscope className="w-4 h-4 text-white" />
             </div>
             <div>
@@ -332,7 +332,7 @@ export default function DentalModal({ dental, onClose, onSave }) {
           <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 border border-slate-200 transition-all">
             ยกเลิก
           </button>
-          <button onClick={handleSubmit} disabled={saving} className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:from-violet-400 hover:to-purple-500 disabled:opacity-60 transition-all shadow-md">
+          <button onClick={handleSubmit} disabled={saving} className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60 transition-all shadow-sm">
             {saving ? 'กำลังบันทึก...' : isEdit ? 'บันทึกการแก้ไข' : 'เพิ่มข้อมูล'}
           </button>
         </div>

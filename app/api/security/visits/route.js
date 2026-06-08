@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSession } from '@/app/lib/session';
 import { checkRateLimit, rateLimitResponse } from '@/app/lib/rate-limit';
 import { getVisitStats, insertVisitLog } from '@/app/lib/visit-logs';
+import { recordRateLimitEvent } from '@/app/lib/security-events';
 
 export async function GET() {
   try {
@@ -14,12 +15,20 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const rateLimit = checkRateLimit(request, {
+  const rateLimitOptions = {
     keyPrefix: 'visit-log',
     limit: 60,
     windowMs: 60 * 1000,
-  });
-  if (rateLimit.limited) return rateLimitResponse(rateLimit);
+  };
+  const rateLimit = checkRateLimit(request, rateLimitOptions);
+  if (rateLimit.limited) {
+    await recordRateLimitEvent({
+      request,
+      ...rateLimitOptions,
+      summary: 'มีการเรียกบันทึก visit log ถี่เกินกำหนด',
+    });
+    return rateLimitResponse(rateLimit);
+  }
 
   try {
     const body = await request.json().catch(() => ({}));

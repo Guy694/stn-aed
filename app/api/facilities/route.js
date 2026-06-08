@@ -44,6 +44,7 @@ export async function POST(request) {
     );
 
     await writeAuditLog({
+      request,
       session,
       action: 'create',
       entityType: 'health_facility',

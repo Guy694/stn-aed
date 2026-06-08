@@ -48,6 +48,7 @@ export async function PATCH(request, { params }) {
     `, [reportId]);
 
     await writeAuditLog({
+      request,
       session,
       action: 'update_status',
       entityType: 'aed_report',

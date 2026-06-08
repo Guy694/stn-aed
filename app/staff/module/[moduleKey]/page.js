@@ -4,8 +4,7 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle,
-  ExternalLink,
-  LayoutPanelTop,
+  ArrowRight,
   MapPin,
   RadioTower,
   Shield,
@@ -17,33 +16,7 @@ import StaffModuleSidebar from '@/app/components/StaffModuleSidebar';
 import { query } from '@/app/lib/db';
 import { getSession } from '@/app/lib/session';
 import { getUserModulePermissions } from '@/app/lib/module-permissions';
-import { getStaffModuleByKey } from '@/app/lib/modules';
-
-function themeFor(moduleKey) {
-  switch (moduleKey) {
-    case 'dashboard':
-      return {
-        gradient: 'from-emerald-500 via-teal-500 to-cyan-700',
-        glow: 'shadow-emerald-500/25',
-        text: 'text-emerald-200',
-        icon: 'text-emerald-300',
-      };
-    case 'my_reports':
-      return {
-        gradient: 'from-amber-500 via-orange-500 to-rose-600',
-        glow: 'shadow-amber-500/25',
-        text: 'text-amber-200',
-        icon: 'text-amber-300',
-      };
-    default:
-      return {
-        gradient: 'from-sky-500 via-cyan-500 to-blue-700',
-        glow: 'shadow-sky-500/25',
-        text: 'text-cyan-200',
-        icon: 'text-cyan-300',
-      };
-  }
-}
+import { getModuleTheme, getStaffModuleByKey } from '@/app/lib/modules';
 
 function toNumber(value) {
   return Number(value || 0);
@@ -116,11 +89,11 @@ async function getStaffDashboardSummary() {
   };
 }
 
-function DashboardStatCard({ icon: Icon, label, value, sub, gradient, warn = false }) {
+function DashboardStatCard({ icon: Icon, label, value, sub, tone, warn = false }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${gradient}`}>
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${tone}`}>
           <Icon className="h-4 w-4 text-white" />
         </div>
         <div className="min-w-0 flex-1">
@@ -188,34 +161,34 @@ function StaffDashboardOverview({ summary, permissions }) {
           label="AED ทั้งหมด"
           value={formatNumber(totals.aed_total)}
           sub={`${formatNumber(totals.aed_active)} จุดเปิดใช้งาน, เครื่องรวม ${formatNumber(totals.aed_quantity_total)}`}
-          gradient="from-sky-500 via-cyan-500 to-blue-700"
+          tone="bg-sky-600"
         />
         <DashboardStatCard
           icon={Stethoscope}
           label="ทันตกรรม"
           value={formatNumber(totals.dental_total)}
           sub={`${formatNumber(totals.dental_active)} หน่วยเปิดบริการ, ยูนิตพร้อมใช้ ${formatNumber(totals.dental_units_ready)}`}
-          gradient="from-indigo-500 via-blue-500 to-sky-600"
+          tone="bg-violet-600"
         />
         <DashboardStatCard
           icon={RadioTower}
           label="Health Station"
           value={formatNumber(totals.hs_total)}
           sub={`${formatNumber(totals.hs_open)} จุดเปิดบริการ, มี อสม. ${formatNumber(totals.hs_aom)}`}
-          gradient="from-emerald-500 via-teal-500 to-cyan-700"
+          tone="bg-teal-600"
         />
         <DashboardStatCard
           icon={AlertTriangle}
           label="รายงานรอดำเนินการ"
           value={formatNumber(openReports)}
           sub={`รอรับเรื่อง ${formatNumber(pendingReports)}, กำลังดำเนินการ ${formatNumber(inProgressReports)}`}
-          gradient="from-amber-500 via-orange-500 to-rose-600"
+          tone="bg-amber-600"
           warn={openReports > 0}
         />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="xl:col-span-2 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-slate-900">สถานะภาพรวม</p>
@@ -230,7 +203,7 @@ function StaffDashboardOverview({ summary, permissions }) {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
           <p className="text-sm font-bold">Quick Links</p>
           <p className="mt-1 text-xs text-slate-500">แสดงเฉพาะเมนูที่บัญชีนี้มีสิทธิ์</p>
           <div className="mt-4 space-y-2">
@@ -255,11 +228,11 @@ function StaffDashboardOverview({ summary, permissions }) {
       </div>
 
       {summary.districts.length > 0 && (
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-sm font-bold text-slate-900">AED ตามอำเภอสูงสุด</p>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {summary.districts.map((district) => (
-              <div key={district.name || 'unknown'} className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4">
+              <div key={district.name || 'unknown'} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-sm font-bold text-slate-900">{district.name || 'ไม่ระบุอำเภอ'}</p>
                 <p className="mt-1 text-xs text-slate-500">
                   AED {formatNumber(district.total)} จุด, เปิดใช้งาน {formatNumber(district.active)}
@@ -288,42 +261,32 @@ export default async function StaffModuleWorkspacePage({ params }) {
     redirect('/staff');
   }
 
-  const theme = themeFor(moduleConfig.key);
+  if (moduleConfig.entryRoute) {
+    redirect(moduleConfig.entryRoute);
+  }
+
+  const theme = getModuleTheme(moduleConfig.key);
   const dashboardSummary = moduleConfig.key === 'dashboard' ? await getStaffDashboardSummary() : null;
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#f4f8ff_0%,#edf3fb_100%)]">
+    <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-6xl p-4 md:p-6 lg:mx-0 lg:max-w-none lg:p-0">
-        <StaffModuleSidebar moduleConfig={moduleConfig} theme={theme} />
+        <StaffModuleSidebar moduleConfig={moduleConfig} theme={theme} permissions={permissions} />
 
         <main className="space-y-5 lg:ml-72 lg:p-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Module Workspace</p>
-              <h1 className="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">{moduleConfig.label}</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{moduleConfig.description}</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Link
-                href={moduleConfig.route}
-                className="group relative rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${theme.gradient}`} />
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-sm text-slate-500">เข้าสู่หน้าทำงานจริง</p>
-                  <p className="mt-1 text-lg font-bold text-slate-900">เปิด {moduleConfig.label}</p>
-                  <p className="mt-2 text-xs text-slate-400 inline-flex items-center gap-1.5">
-                    ไปยัง {moduleConfig.route} <ExternalLink className="w-3.5 h-3.5" />
-                  </p>
+                  <p className="text-xs font-semibold text-slate-500">พื้นที่ทำงานเจ้าหน้าที่</p>
+                  <h1 className="mt-1 text-2xl font-bold text-slate-900">{moduleConfig.label}</h1>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{moduleConfig.description}</p>
                 </div>
-              </Link>
-
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-sm text-slate-500">ข้อมูลผู้ใช้งาน</p>
-                <p className="mt-1 text-lg font-bold text-slate-900">{session.fullName}</p>
-                <p className="mt-2 text-xs text-slate-500 inline-flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-emerald-500" /> Role: {session.role}
-                </p>
+                <Link
+                  href={moduleConfig.route}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-700"
+                >
+                  เปิดหน้าทำงาน <ArrowRight className="h-4 w-4" />
+                </Link>
               </div>
             </div>
 
@@ -331,14 +294,19 @@ export default async function StaffModuleWorkspacePage({ params }) {
               <StaffDashboardOverview summary={dashboardSummary} permissions={permissions} />
             )}
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-sm text-slate-500 inline-flex items-center gap-1.5">
-                <LayoutPanelTop className={`w-4 h-4 ${theme.icon}`} />หมายเหตุ
-              </p>
-              <p className="mt-2 text-sm text-slate-600">
-                หน้า Workspace นี้ใช้สำหรับแยก Sidebar ตามโมดูล เมื่อเข้าแต่ละโมดูลจะเห็นรายการเมนูเฉพาะของโมดูลนั้น
-              </p>
-            </div>
+            {!dashboardSummary && (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <Shield className={`mt-0.5 h-5 w-5 ${theme.icon}`} />
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">เมนูของโมดูลอยู่ที่ Sidebar</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      เลือกเมนูด้านซ้ายเพื่อเปิดหน้าทำงาน ระบบจะแสดงเฉพาะรายการที่บัญชีนี้มีสิทธิ์ใช้งาน
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
         </main>
       </div>
     </div>

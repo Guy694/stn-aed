@@ -3,9 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { KeyRound, Pencil, Plus, RefreshCw, Save, Shield, Trash2, UserCircle2, UserPlus2, X } from 'lucide-react';
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch } from '@/app/lib/client-api';
 
 const MODULE_LABELS = {
+  map: 'แผนที่ AED',
+  dashboard: 'Dashboard',
+  my_reports: 'แจ้งรายงาน AED',
   manage_dental: 'จัดการทันตกรรม',
   manage_health_stations: 'จัดการ Health Station',
   manage_aed: 'จัดการ AED',
@@ -38,7 +41,7 @@ export default function AdminUsersPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${BASE}/api/admin/users`);
+      const res = await apiFetch(`/api/admin/users`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'โหลดข้อมูลผู้ใช้งานไม่สำเร็จ');
 
@@ -56,7 +59,7 @@ export default function AdminUsersPage() {
 
   const loadRegistrationRequests = async () => {
     try {
-      const res = await fetch(`${BASE}/api/admin/registration-requests?status=pending`);
+      const res = await apiFetch(`/api/admin/registration-requests?status=pending`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'โหลดคำขอลงทะเบียนไม่สำเร็จ');
       setRegistrationRequests(data.requests || []);
@@ -102,8 +105,8 @@ export default function AdminUsersPage() {
 
     try {
       const endpoint = editingUserId
-        ? `${BASE}/api/admin/users/${editingUserId}`
-        : `${BASE}/api/admin/users`;
+        ? `/api/admin/users/${editingUserId}`
+        : '/api/admin/users';
       const method = editingUserId ? 'PUT' : 'POST';
 
       const payload = {
@@ -116,7 +119,7 @@ export default function AdminUsersPage() {
         payload.password = form.password;
       }
 
-      const res = await fetch(endpoint, {
+      const res = await apiFetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -145,7 +148,7 @@ export default function AdminUsersPage() {
     setNotice('');
 
     try {
-      const res = await fetch(`${BASE}/api/admin/users/${deleteDialogUser.id}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/admin/users/${deleteDialogUser.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'ลบผู้ใช้งานไม่สำเร็จ');
 
@@ -165,7 +168,7 @@ export default function AdminUsersPage() {
     setError('');
     setNotice('');
     try {
-      const res = await fetch(`${BASE}/api/admin/users/${user.id}`, {
+      const res = await apiFetch(`/api/admin/users/${user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reset_password', new_password: '123456' }),
@@ -184,11 +187,15 @@ export default function AdminUsersPage() {
     setError('');
     setNotice('');
     try {
-      const res = await fetch(`${BASE}/api/admin/registration-requests/${requestId}/approve`, { method: 'POST' });
+      const res = await apiFetch(`/api/admin/registration-requests/${requestId}/approve`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'อนุมัติคำขอไม่สำเร็จ');
       await Promise.all([load(), loadRegistrationRequests()]);
-      setNotice('อนุมัติคำขอลงทะเบียนเรียบร้อยแล้ว');
+      setNotice(
+        data.approvalEmail?.sent
+          ? 'อนุมัติคำขอลงทะเบียนและส่งอีเมลแจ้งผลเรียบร้อยแล้ว'
+          : 'อนุมัติคำขอลงทะเบียนเรียบร้อยแล้ว แต่ยังไม่ได้ส่งอีเมลแจ้งผล',
+      );
     } catch (e) {
       setError(e.message || 'เกิดข้อผิดพลาด');
     }
@@ -200,7 +207,7 @@ export default function AdminUsersPage() {
     setError('');
     setNotice('');
     try {
-      const res = await fetch(`${BASE}/api/admin/registration-requests/${requestId}/reject`, {
+      const res = await apiFetch(`/api/admin/registration-requests/${requestId}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note: 'ไม่ผ่านการพิจารณา' }),
@@ -237,7 +244,7 @@ export default function AdminUsersPage() {
     setNotice('');
     setError('');
     try {
-      const res = await fetch(`${BASE}/api/admin/users/${user.id}/modules`, {
+      const res = await apiFetch(`/api/admin/users/${user.id}/modules`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modules: user.module_permissions || {} }),
@@ -260,7 +267,7 @@ export default function AdminUsersPage() {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-widest text-slate-400 font-bold">Admin</p>
+            <p className="text-sm font-semibold text-slate-500">Admin</p>
             <h1 className="text-2xl font-black text-slate-900">จัดการสิทธิ์โมดูลรายบุคคล</h1>
             <p className="text-sm text-slate-500 mt-1">กำหนดสิทธิ์เจ้าหน้าที่ให้เข้าจัดการโมดูลทันตกรรม, Health Station และ AED</p>
           </div>
@@ -296,6 +303,8 @@ export default function AdminUsersPage() {
                     <p className="text-xs text-slate-500">
                       ที่มา: {requestItem.source === 'line' ? 'LINE' : 'ฟอร์ม'}
                       {requestItem.facility_name ? ` • หน่วยงาน: ${requestItem.facility_name}` : ''}
+                      {requestItem.position_name ? ` • ตำแหน่ง: ${requestItem.position_name}` : ''}
+                      {requestItem.email ? ` • อีเมล: ${requestItem.email}` : ''}
                       {requestItem.phone ? ` • โทร: ${requestItem.phone}` : ''}
                     </p>
                   </div>
@@ -310,7 +319,7 @@ export default function AdminUsersPage() {
                     <button
                       onClick={() => rejectRequest(requestItem.id)}
                       disabled={rejectingRequestId === requestItem.id}
-                      className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
+                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 disabled:opacity-50"
                     >
                       {rejectingRequestId === requestItem.id ? 'กำลังปฏิเสธ...' : 'ปฏิเสธ'}
                     </button>
@@ -391,7 +400,7 @@ export default function AdminUsersPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wide">
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs font-semibold">
                   <th className="px-4 py-3 text-left">ผู้ใช้งาน</th>
                   <th className="px-4 py-3 text-left">Role</th>
                   {moduleKeys.map((key) => (
@@ -416,7 +425,13 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs border ${user.role === 'admin' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs border ${
+                          user.role === 'admin'
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                            : 'bg-slate-50 text-slate-600 border-slate-200'
+                        }`}
+                      >
                         <Shield className="w-3 h-3" />{user.role}
                       </span>
                     </td>
@@ -507,7 +522,7 @@ export default function AdminUsersPage() {
               <button
                 onClick={confirmDeleteUser}
                 disabled={deletingUserId === deleteDialogUser.id}
-                className="rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
+                className="rounded-xl bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
               >
                 {deletingUserId === deleteDialogUser.id ? 'กำลังลบ...' : 'ยืนยันลบ'}
               </button>

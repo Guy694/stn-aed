@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-08T04:34:45Z",
+  "title": "Design System: ระบบข้อมูลสุขภาพ สตูล",
+  "sourceFiles": [
+    "PRODUCT.md",
+    "app/globals.css",
+    "app/layout.js",
+    "app/components/Navbar.js",
+    "app/components/DentalModal.js",
+    "app/admin/aed/page.js",
+    "app/admin/health-stations/page.js",
+    "app/dashboard/page.js",
+    "app/map/page.js",
+    "app/login/page.js"
+  ],
+  "product": {
+    "northStar": "โต๊ะบัญชาการข้อมูลจังหวัด",
+    "audience": "เจ้าหน้าที่สาธารณสุขทั้งจังหวัดสตูล",
+    "personality": [
+      "ชัดเจน",
+      "เชื่อถือได้",
+      "มั่นคง"
+    ],
+    "antiReferences": [
+      "เว็บราชการเก่า",
+      "หน้าตาซับซ้อนจนต้องเดาวิธีใช้งาน",
+      "สีจัดหรือองค์ประกอบตกแต่งที่แย่งความสนใจจากข้อมูล",
+      "ลวดลายแฟนซีที่ทำให้ระบบดูไม่น่าเชื่อถือ"
+    ]
+  },
+  "colors": {
+    "roles": {
+      "primary": "#0ea5e9",
+      "primaryDark": "#0284c7",
+      "success": "#10b981",
+      "danger": "#ef4444",
+      "warning": "#f59e0b",
+      "page": "#f8fafc",
+      "surface": "#ffffff",
+      "mutedSurface": "#f1f5f9",
+      "border": "#e2e8f0",
+      "text": "#0f172a",
+      "mutedText": "#64748b"
+    },
+    "moduleAccents": {
+      "aed": ["#0ea5e9", "#ef4444"],
+      "dental": ["#8b5cf6", "#7c3aed"],
+      "healthStation": ["#14b8a6", "#06b6d4"],
+      "audit": ["#06b6d4", "#3b82f6"]
+    },
+    "rules": [
+      "Use red only for danger, delete, and error.",
+      "Use amber only for warning or pending.",
+      "Use emerald only for success, active, ready, or health-positive states.",
+      "Keep each module to one main accent family plus neutral surfaces."
+    ]
+  },
+  "typography": {
+    "family": "Prompt, system-ui, sans-serif",
+    "weights": [300, 400, 500, 600, 700, 800, 900],
+    "scale": {
+      "display": { "size": "2rem", "weight": 800, "lineHeight": 1.15 },
+      "headline": { "size": "1.5rem", "weight": 800, "lineHeight": 1.2 },
+      "title": { "size": "1rem", "weight": 700, "lineHeight": 1.35 },
+      "body": { "size": "0.875rem", "weight": 400, "lineHeight": 1.6 },
+      "label": { "size": "0.75rem", "weight": 600, "lineHeight": 1.25 }
+    },
+    "rules": [
+      "Do not scale font size with viewport width.",
+      "Keep letter spacing at 0 unless a local uppercase label already requires tracking.",
+      "Use weight and hierarchy to guide scanning, not oversized type."
+    ]
+  },
+  "shape": {
+    "defaultControlRadius": "12px",
+    "cardRadius": "16px",
+    "largeSurfaceRadius": "24px",
+    "badgeRadius": "8px"
+  },
+  "spacing": {
+    "base": "8px",
+    "common": ["4px", "8px", "12px", "16px", "20px", "24px", "32px"],
+    "rules": [
+      "Prefer stable dimensions for icon buttons, badges, segmented controls, table cells, and toolbars.",
+      "Use tighter spacing for dense tables and forms than for overview dashboard panels."
+    ]
+  },
+  "elevation": {
+    "philosophy": "Hybrid tonal layering: borders and muted surfaces first, shadows only for hierarchy, overlay, and interaction.",
+    "vocabulary": {
+      "restingSurface": "shadow-sm",
+      "interactiveLift": "hover:shadow-md",
+      "floatingControl": "shadow-xl",
+      "modalPriority": "shadow-2xl",
+      "mapPopup": "0 12px 32px rgba(0,0,0,0.1)",
+      "tooltipDark": "0 4px 16px rgba(0,0,0,0.2)"
+    }
+  },
+  "motion": {
+    "duration": {
+      "fast": "150ms",
+      "default": "200ms",
+      "entrance": "250ms to 300ms"
+    },
+    "rules": [
+      "Use motion for feedback only: hover, menu open, modal entry, loading, and splash.",
+      "Avoid decorative motion inside data-heavy admin screens.",
+      "Respect reduced motion when adding new animation."
+    ]
+  },
+  "components": {
+    "buttons": {
+      "radius": "12px",
+      "primary": "sky background or sky gradient, white text, semibold, icon plus label when possible",
+      "destructive": "red background or red-tinted surface, clear delete copy",
+      "iconOnly": "fixed 28px to 40px square with lucide icon and title or accessible label"
+    },
+    "cards": {
+      "surface": "white",
+      "border": "slate-200",
+      "shadow": "shadow-sm",
+      "padding": "16px to 24px"
+    },
+    "inputs": {
+      "radius": "12px",
+      "border": "slate-200",
+      "focus": "module accent border or ring",
+      "fontSize": "14px"
+    },
+    "tables": {
+      "density": "compact and scannable",
+      "actions": "fixed-size icon buttons",
+      "status": "badge or dot plus text"
+    },
+    "modals": {
+      "overlay": "slate-900/50 with backdrop-blur-sm",
+      "panel": "white rounded-2xl border slate-200 shadow-2xl",
+      "maxHeight": "90vh with scrollable body"
+    },
+    "navigation": {
+      "topBar": "sticky white/80 backdrop-blur border-b",
+      "logo": "sky to emerald gradient tile",
+      "mobile": "large touch targets with icon and label"
+    }
+  },
+  "responsive": {
+    "rules": [
+      "Mobile layouts must not rely on wide tables without overflow handling.",
+      "Modals should fit within 90vh and keep header and actions reachable.",
+      "Long Thai labels must wrap or truncate intentionally without overlapping controls."
+    ]
+  },
+  "accessibility": {
+    "target": "WCAG AA for critical text and controls",
+    "rules": [
+      "Do not communicate status by color alone.",
+      "Keep touch targets usable on mobile.",
+      "Use visible focus treatment on interactive controls.",
+      "Write Thai error messages with specific recovery guidance."
+    ]
+  }
+}

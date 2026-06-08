@@ -89,6 +89,7 @@ export async function POST(request) {
 
     const [created] = await query('SELECT * FROM dental_units WHERE id = ?', [result.insertId]);
     await writeAuditLog({
+      request,
       session,
       action: 'create',
       entityType: 'dental_unit',

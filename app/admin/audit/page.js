@@ -128,26 +128,24 @@ export default async function AdminAuditPage({ searchParams }) {
   const filterParams = { action, entityType, actor, dateFrom, dateTo, limit };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#e0f2fe,transparent_34%),linear-gradient(135deg,#f8fafc,#eef2ff)] px-6 py-7">
-      <section className="relative overflow-hidden rounded-3xl border border-white/70 bg-slate-950 p-6 text-white shadow-2xl">
-        <div className="absolute -right-24 -top-24 h-56 w-56 rounded-full bg-cyan-400/25 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-36 w-36 rounded-full bg-amber-300/20 blur-2xl" />
-        <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="min-h-screen px-6 py-7">
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-200">Security Trail</p>
-            <h1 className="mt-1 text-3xl font-black">Audit Logs</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-300">
+            <p className="text-sm font-semibold text-slate-500">Security Trail</p>
+            <h1 className="mt-1 text-2xl font-black text-slate-950">Audit Logs</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600">
               ตรวจสอบประวัติการเพิ่ม แก้ไข ลบข้อมูล และการเปลี่ยนสิทธิ์ในระบบ
             </p>
           </div>
-          <div className="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
-            <p className="text-xs text-slate-300">รายการที่พบ</p>
+          <div className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-cyan-800">
+            <p className="text-xs font-semibold">รายการที่พบ</p>
             <p className="text-3xl font-black">{total.toLocaleString('th-TH')}</p>
           </div>
         </div>
       </section>
 
-      <section className="mt-6 rounded-3xl border border-white/70 bg-white/90 p-5 shadow-xl backdrop-blur">
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <form className="grid grid-cols-1 gap-3 lg:grid-cols-12" action="/admin/audit">
           <div className="lg:col-span-2">
             <label className="mb-1 block text-xs font-bold text-slate-500">Action</label>
@@ -202,10 +200,10 @@ export default async function AdminAuditPage({ searchParams }) {
         </form>
       </section>
 
-      <section className="mt-6 rounded-3xl border border-white/70 bg-white/90 shadow-xl backdrop-blur">
+      <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-700">
               <ScrollText className="h-5 w-5" />
             </div>
             <div>
@@ -226,7 +224,7 @@ export default async function AdminAuditPage({ searchParams }) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] text-left">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80 text-xs font-bold uppercase tracking-[0.12em] text-slate-400">
+                <tr className="border-b border-slate-100 bg-slate-50 text-xs font-bold text-slate-500">
                   <th className="px-5 py-3">เวลา</th>
                   <th className="px-5 py-3">ผู้ดำเนินการ</th>
                   <th className="px-5 py-3">Action</th>

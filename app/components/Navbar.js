@@ -1,11 +1,10 @@
 'use client';
 import { useState } from 'react';
 import Image from 'next/image';
-
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LayoutDashboard, LogIn, LogOut, Menu, X, Shield } from 'lucide-react';
+import { apiFetch, publicPath } from '@/app/lib/client-api';
 
 export default function Navbar({ user }) {
   const pathname = usePathname();
@@ -13,7 +12,7 @@ export default function Navbar({ user }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    await fetch(`${BASE}/api/auth/logout`, { method: 'POST' });
+    await apiFetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
     router.refresh();
   };
@@ -27,7 +26,7 @@ export default function Navbar({ user }) {
           {/* Logo */}
           <Link href="/map" className="flex items-center gap-2.5 group">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-emerald-500 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-             <Image src={`${BASE}/img/logo.png`} alt="AED Icon" width={40} height={40} className="w-10 h-10" />
+             <Image src={publicPath('/img/logo.png')} alt="AED Icon" width={40} height={40} className="w-10 h-10" />
             </div>
             <div className="hidden sm:block">
               <p className="text-sm font-bold text-slate-900 leading-tight">ระบบติดตามจุดบริการสาธารณสุข จังหวัดสตูล</p>
@@ -48,7 +47,7 @@ export default function Navbar({ user }) {
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 transition-all duration-200"
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-red-700 hover:bg-red-50 transition-all duration-200"
                 >
                   <LogOut className="w-4 h-4" />
                   ออกจากระบบ
@@ -67,8 +66,11 @@ export default function Navbar({ user }) {
 
           {/* Mobile menu toggle */}
           <button
-            className="md:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all"
+            className="md:hidden min-h-11 min-w-11 rounded-xl text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
             onClick={() => setMenuOpen(!menuOpen)}
+            aria-label={menuOpen ? 'ปิดเมนู' : 'เปิดเมนู'}
+            aria-expanded={menuOpen}
+            aria-controls="mobile-main-menu"
           >
             {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
@@ -76,12 +78,12 @@ export default function Navbar({ user }) {
 
         {/* Mobile menu */}
         {menuOpen && (
-          <div className="md:hidden pb-4 space-y-1 border-t border-slate-200 pt-3">
+          <div id="mobile-main-menu" className="md:hidden pb-4 space-y-1 border-t border-slate-200 pt-3">
           
             {user ? (
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-500/10 transition-all"
+                className="flex min-h-11 w-full items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-red-700 transition-all hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
               >
                 <LogOut className="w-4 h-4" />
                 ออกจากระบบ
@@ -90,7 +92,7 @@ export default function Navbar({ user }) {
               <Link
                 href="/login"
                 onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium text-sky-400 hover:bg-sky-500/10 transition-all"
+                className="flex min-h-11 items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-sky-700 transition-all hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
               >
                 <LogIn className="w-4 h-4" />
                 เข้าสู่ระบบ

@@ -60,6 +60,7 @@ export async function POST(request) {
 
     const [created] = await query('SELECT * FROM health_stations WHERE id = ?', [result.insertId]);
     await writeAuditLog({
+      request,
       session,
       action: 'create',
       entityType: 'health_station',

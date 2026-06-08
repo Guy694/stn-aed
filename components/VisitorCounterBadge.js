@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
 const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+const TASK_ROUTE_PREFIXES = ['/admin', '/staff', '/dashboard', '/map', '/my-reports'];
 
 export default function VisitorCounterBadge() {
   const pathname = usePathname();
@@ -14,6 +15,15 @@ export default function VisitorCounterBadge() {
   });
 
   const displayPath = useMemo(() => pathname || '/', [pathname]);
+  const shouldShowBadge = useMemo(() => {
+    const normalizedPath = BASE && displayPath.startsWith(BASE)
+      ? displayPath.slice(BASE.length) || '/'
+      : displayPath;
+
+    return !TASK_ROUTE_PREFIXES.some((prefix) => (
+      normalizedPath === prefix || normalizedPath.startsWith(`${prefix}/`)
+    ));
+  }, [displayPath]);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +65,8 @@ export default function VisitorCounterBadge() {
       clearInterval(intervalId);
     };
   }, [displayPath]);
+
+  if (!shouldShowBadge) return null;
 
   return (
     <aside

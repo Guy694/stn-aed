@@ -1,11 +1,9 @@
 import 'server-only';
 
 import { query } from '@/app/lib/db';
-import { ADMIN_MANAGE_MODULE_KEYS, STAFF_MODULE_KEYS } from '@/app/lib/modules';
+import { ALL_MODULE_PERMISSION_KEYS } from '@/app/lib/modules';
 
 let tableEnsured = false;
-
-const ALL_MODULE_PERMISSION_KEYS = [...new Set([...STAFF_MODULE_KEYS, ...ADMIN_MANAGE_MODULE_KEYS])];
 
 export async function ensureModulePermissionTable() {
   if (tableEnsured) return;
@@ -26,10 +24,7 @@ export async function ensureModulePermissionTable() {
 }
 
 function defaultPermissionMap() {
-  return {
-    ...Object.fromEntries(STAFF_MODULE_KEYS.map((key) => [key, true])),
-    ...Object.fromEntries(ADMIN_MANAGE_MODULE_KEYS.map((key) => [key, false])),
-  };
+  return Object.fromEntries(ALL_MODULE_PERMISSION_KEYS.map((key) => [key, false]));
 }
 
 export async function getUserModulePermissions(userId, role = 'user') {

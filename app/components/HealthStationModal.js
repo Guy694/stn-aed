@@ -3,7 +3,7 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { X, RadioTower, AlertCircle } from 'lucide-react';
 
-const BASE = process.env.NEXT_PUBLIC_BASE_PATH || '';
+import { apiFetch } from '@/app/lib/client-api';
 const MapView = dynamic(() => import('./MapView'), { ssr: false });
 const THAILAND_BOUNDS = {
   minLat: 5.5,
@@ -147,9 +147,9 @@ export default function HealthStationModal({ station, onClose, onSave }) {
         lon: parsedLon,
       };
 
-      const url = isEdit ? `${BASE}/api/health-stations/${station.id}` : `${BASE}/api/health-stations`;
+      const url = isEdit ? `/api/health-stations/${station.id}` : '/api/health-stations';
       const method = isEdit ? 'PUT' : 'POST';
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
