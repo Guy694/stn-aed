@@ -271,9 +271,9 @@ export default async function StaffModuleWorkspacePage({ params }) {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="mx-auto max-w-6xl p-4 md:p-6 lg:mx-0 lg:max-w-none lg:p-0">
-        <StaffModuleSidebar moduleConfig={moduleConfig} theme={theme} permissions={permissions} />
+        <StaffModuleSidebar moduleConfig={moduleConfig} permissions={permissions} session={session} />
 
-        <main className="space-y-5 lg:ml-72 lg:p-6">
+        <main className="space-y-5 lg:ml-64 lg:p-6">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>

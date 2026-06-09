@@ -1,4 +1,4 @@
-const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '/stn-aed';
+const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 const APP_ROUTE_MARKERS = [
   '/map',
@@ -93,9 +93,9 @@ export function pathCandidates(path) {
     .filter(Boolean)
     .map((base) => joinBasePath(base, normalizedPath));
 
-  // Always keep the raw path as the last fallback so routes can still resolve
-  // when basePath inference is wrong in some environments.
-  return [...new Set([...preferred, normalizedPath])];
+  // A configured or runtime-detected base path is authoritative. Falling back
+  // to the raw API path only produces a guaranteed 404 in basePath deployments.
+  return preferred.length > 0 ? [...new Set(preferred)] : [normalizedPath];
 }
 
 export function apiUrl(path) {
@@ -125,8 +125,13 @@ function networkErrorResponse(path, attemptedUrls, error) {
 
 export async function apiFetch(path, init) {
   const urls = pathCandidates(path);
+  const apiPath = normalizedApiPath(path);
   let lastError = null;
   const attempted = [];
+
+  if (typeof window !== 'undefined' && apiPath === '/api/auth/logout') {
+    window.dispatchEvent(new Event('stn-aed:session-ended'));
+  }
 
   for (let index = 0; index < urls.length; index += 1) {
     const url = urls[index];
@@ -134,8 +139,21 @@ export async function apiFetch(path, init) {
     try {
       const response = await fetch(url, init);
       const contentType = response.headers.get('content-type') || '';
+      const isJsonResponse = contentType.includes('application/json');
+
+      // Some deployments rewrite unknown paths to an HTML app shell with 200.
+      // For API calls, treat non-JSON responses as a miss and try next candidate.
+      if (apiPath.startsWith('/api') && !isJsonResponse && index < urls.length - 1) continue;
+
       if (response.status === 404 && index < urls.length - 1) continue;
-      if (!contentType.includes('application/json') && response.status >= 400 && index < urls.length - 1) continue;
+      if (!isJsonResponse && response.status >= 400 && index < urls.length - 1) continue;
+
+      if (typeof window !== 'undefined' && response.ok) {
+        if (apiPath === '/api/auth/login') {
+          window.dispatchEvent(new Event('stn-aed:session-started'));
+        }
+      }
+
       return response;
     } catch (error) {
       lastError = error;
@@ -149,4 +167,14 @@ export async function apiFetch(path, init) {
   }
 
   return networkErrorResponse(path, attempted, lastError);
+}
+
+function normalizedApiPath(path) {
+  if (!/^https?:\/\//i.test(path)) return normalizePath(path);
+
+  try {
+    return new URL(path).pathname;
+  } catch {
+    return path;
+  }
 }

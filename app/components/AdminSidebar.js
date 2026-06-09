@@ -211,22 +211,7 @@ export default function AdminSidebar() {
           </div>
         </div>
 
-        {!activeModuleKey && (
-          <div>
-            <p className="mb-1.5 px-2 text-xs font-semibold text-slate-400">หน่วยบริการ</p>
-            <div className="space-y-1">
-              {orgItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.label} className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-800 bg-slate-900">
-                    <Icon className="w-3.5 h-3.5 text-sky-300" />
-                    <span className="text-xs font-medium text-slate-300">{item.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+     
 
         {activeModuleKey ? (
           <div>

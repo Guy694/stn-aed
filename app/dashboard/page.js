@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import AdminSidebar from '@/app/components/AdminSidebar';
 import AdminNavbar from '@/app/components/AdminNavbar';
 import StaffModuleSidebar from '@/app/components/StaffModuleSidebar';
-import { getModuleTheme, getStaffModuleByKey } from '@/app/lib/modules';
+import { getStaffModuleByKey } from '@/app/lib/modules';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, RadialBarChart, RadialBar,
@@ -389,15 +389,13 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-50">
       {isAdmin && <AdminSidebar />}
       {isStaff && staffModuleConfig && (
-        <div className="p-4 md:p-6 lg:p-0">
-          <StaffModuleSidebar
-            moduleConfig={staffModuleConfig}
-            theme={getModuleTheme(staffModuleKey)}
-            permissions={user.modulePermissions || {}}
-          />
-        </div>
+        <StaffModuleSidebar
+          moduleConfig={staffModuleConfig}
+          permissions={user.modulePermissions || {}}
+          session={user}
+        />
       )}
-      <div className={isAdmin ? 'ml-64 min-h-screen' : isStaff ? 'lg:ml-72 min-h-screen' : 'min-h-screen'}>
+      <div className={isAdmin ? 'ml-64 min-h-screen' : isStaff ? 'lg:ml-64 min-h-screen' : 'min-h-screen'}>
       {isAdmin && <AdminNavbar user={user} />}
       {/* ── Navbar ── */}
       <div className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur-xl md:px-6">

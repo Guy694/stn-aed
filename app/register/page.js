@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Info, Loader2, UserPlus2 } from 'lucide-react';
 
-import { apiFetch } from '@/app/lib/client-api';
+import { apiFetch, publicPath } from '@/app/lib/client-api';
 
 function formatFacilityLabel(facility) {
   if (!facility) return '';
@@ -355,7 +355,10 @@ export default function RegisterPage() {
         </Link>
 
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b border-slate-200 bg-slate-950 px-5 py-5 text-white md:px-8">
+          <div
+            className="border-b border-slate-200 bg-slate-950 bg-cover bg-center bg-no-repeat px-5 py-5 text-white md:px-8"
+            style={{ backgroundImage: `url(${publicPath('/img/bglogin.png')})` }}
+          >
             <div className="flex items-start gap-3">
               <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white">
               <UserPlus2 className="w-5 h-5" />

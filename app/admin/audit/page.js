@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ChevronLeft, ChevronRight, Filter, RotateCcw, ScrollText, Search, ShieldCheck, UserCircle2 } from 'lucide-react';
 
+import { ensureAuditLogTable } from '@/app/lib/audit-log';
 import { query } from '@/app/lib/db';
 
 function formatDate(value) {
@@ -66,6 +67,8 @@ export default async function AdminAuditPage({ searchParams }) {
   let error = '';
 
   try {
+    await ensureAuditLogTable();
+
     const where = [];
     const queryParams = [];
 
@@ -116,12 +119,12 @@ export default async function AdminAuditPage({ searchParams }) {
        FROM admin_audit_logs
        ${whereSql}
        ORDER BY created_at DESC, id DESC
-       LIMIT ? OFFSET ?`,
-      [...queryParams, limit, offset],
+       LIMIT ${limit} OFFSET ${offset}`,
+      queryParams,
     );
   } catch (err) {
     console.error('Admin audit page error:', err);
-    error = 'ยังไม่พบตาราง audit logs กรุณารัน database/migrations/001_runtime_tables.sql';
+    error = 'ไม่สามารถโหลด Audit Logs ได้ กรุณาตรวจสอบการเชื่อมต่อฐานข้อมูลและลองใหม่';
   }
 
   const totalPages = Math.max(Math.ceil(total / limit), 1);

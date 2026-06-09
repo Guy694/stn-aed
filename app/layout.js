@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Prompt } from 'next/font/google';
 import VisitorCounterBadge from '@/components/VisitorCounterBadge';
+import SessionIdleTimeout from '@/app/components/SessionIdleTimeout';
 
 const prompt = Prompt({
   weight: ['300', '400', '500', '600', '700', '800', '900'],
@@ -18,6 +19,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="th" className={`${prompt.className} h-full`}>
       <body className="min-h-full flex flex-col antialiased">
+        <SessionIdleTimeout />
         {children}
         <VisitorCounterBadge />
       </body>

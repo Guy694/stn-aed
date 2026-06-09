@@ -1,10 +1,11 @@
 'use client';
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 import { User, Lock, Eye, EyeOff, LogIn, ArrowLeft, Shield } from 'lucide-react';
 
-import { apiFetch, apiUrl } from '@/app/lib/client-api';
+import { apiFetch, apiUrl, publicPath } from '@/app/lib/client-api';
 
 const LINE_ERROR_MSG = {
   line_denied:     'คุณยกเลิกการเข้าสู่ระบบด้วย LINE',
@@ -20,11 +21,18 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const lineError = searchParams.get('error');
+  const idleLogout = searchParams.get('reason') === 'idle';
 
   const [form, setForm] = useState({ username: '', password: '' });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(lineError ? (LINE_ERROR_MSG[lineError] ?? 'เกิดข้อผิดพลาด') : '');
+  const [error, setError] = useState(
+    idleLogout
+      ? 'ออกจากระบบอัตโนมัติ เนื่องจากไม่มีการใช้งานเกิน 15 นาที'
+      : lineError
+        ? (LINE_ERROR_MSG[lineError] ?? 'เกิดข้อผิดพลาด')
+        : '',
+  );
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -59,10 +67,20 @@ function LoginForm() {
     <div className="min-h-screen bg-slate-50 px-4 py-8">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center">
         <div className="grid w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[1fr_440px]">
-          <section className="hidden border-r border-slate-200 bg-slate-950 p-8 text-white lg:flex lg:flex-col lg:justify-between">
+          <section
+            className="hidden border-r border-slate-200 bg-slate-950 bg-cover bg-center bg-no-repeat p-8 text-white lg:flex lg:flex-col lg:justify-between"
+            style={{ backgroundImage: `url(${publicPath('/img/bglogin.png')})` }}
+          >
             <div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500">
-                <Shield className="h-6 w-6" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white p-1">
+                <Image
+                  src={publicPath('/img/logo.png')}
+                  alt="ตราสำนักงานสาธารณสุขจังหวัดสตูล"
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 object-contain"
+                  priority
+                />
               </div>
               <div className="mt-8 max-w-xl">
                 <p className="text-sm font-semibold text-sky-200">สำนักงานสาธารณสุขจังหวัดสตูล</p>
@@ -95,9 +113,7 @@ function LoginForm() {
             </Link>
 
             <div className="mb-7">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-sky-50 text-sky-700 ring-1 ring-sky-200">
-                <Shield className="h-6 w-6" />
-              </div>
+             
               <h2 className="text-2xl font-black leading-tight text-slate-900">เข้าสู่ระบบ</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 เฉพาะเจ้าหน้าที่สาธารณสุขจังหวัดสตูลที่ได้รับอนุมัติแล้ว

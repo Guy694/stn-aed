@@ -10,14 +10,10 @@ import {
   RadioTower,
   Stethoscope,
   Zap,
-  UserCircle2,
-  Mail,
-  Shield,
-  LogOut,
 } from 'lucide-react';
 
-import Navbar from '@/app/components/Navbar';
-import { getSession, deleteSession } from '@/app/lib/session';
+import StaffModuleSidebar from '@/app/components/StaffModuleSidebar';
+import { getSession } from '@/app/lib/session';
 import { ADMIN_MANAGE_MODULES, STAFF_MODULES } from '@/app/lib/modules';
 import { getUserModulePermissions } from '@/app/lib/module-permissions';
 
@@ -81,12 +77,6 @@ function accentFor(moduleKey) {
   }
 }
 
-async function logoutAction() {
-  'use server';
-  await deleteSession();
-  redirect('/login');
-}
-
 export default async function StaffPortalPage() {
   const session = await getSession();
   if (!session) redirect('/login');
@@ -97,65 +87,9 @@ export default async function StaffPortalPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Navbar user={session} />
+      <StaffModuleSidebar permissions={permissions} session={session} />
 
-      <aside className="border-b border-slate-200 bg-white p-3 shadow-sm md:p-4 lg:fixed lg:inset-y-16 lg:left-0 lg:w-72 lg:overflow-y-auto lg:border-b-0 lg:border-r lg:p-5">
-        <div className="space-y-3 lg:space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:p-5">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 lg:h-12 lg:w-12 lg:rounded-2xl">
-                <UserCircle2 className="h-6 w-6 text-slate-600 lg:h-7 lg:w-7" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-base font-bold text-slate-900">{session.fullName}</p>
-                <p className="text-sm text-slate-500">เจ้าหน้าที่ระบบ</p>
-              </div>
-            </div>
-
-            <div className="mt-4 hidden space-y-2 lg:block">
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                <Mail className="h-4 w-4 text-slate-500" />
-                <span className="truncate">{session.username}</span>
-              </div>
-              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                <Shield className="h-4 w-4 text-slate-500" />
-                <span>Role: {session.role}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:block">
-            <p className="text-sm font-semibold text-slate-900">ทางลัด</p>
-            <div className="mt-3 space-y-2">
-              <Link
-                href="/staff"
-                className="flex min-h-11 items-center justify-between rounded-xl border border-slate-200 bg-sky-50 px-3 py-2 text-sm font-medium text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-              >
-                หน้าเลือกโมดูล
-                <ChevronRight className="h-4 w-4 text-sky-500" />
-              </Link>
-              <Link
-                href="/map"
-                className="flex min-h-11 items-center justify-between rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-              >
-                หน้าแผนที่
-                <ChevronRight className="h-4 w-4 text-slate-400" />
-              </Link>
-            </div>
-          </div>
-
-          <form action={logoutAction} className="hidden lg:block">
-            <button
-              type="submit"
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
-            >
-              <LogOut className="h-4 w-4" />ออกจากระบบ
-            </button>
-          </form>
-        </div>
-      </aside>
-
-      <main className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 lg:ml-72 lg:mr-0 lg:max-w-none lg:p-6">
+      <main className="mx-auto max-w-6xl px-4 py-4 md:px-6 md:py-8 lg:ml-64 lg:mr-0 lg:max-w-none lg:p-6">
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>

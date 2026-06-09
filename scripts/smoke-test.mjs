@@ -1,4 +1,11 @@
+import 'dotenv/config';
+
 const baseUrl = (process.env.SMOKE_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+const configuredBasePath = (process.env.NEXT_PUBLIC_BASE_PATH || '').replace(/^\/+|\/+$/g, '');
+const baseUrlPath = new URL(baseUrl).pathname.replace(/^\/+|\/+$/g, '');
+const requestBasePath = configuredBasePath && baseUrlPath !== configuredBasePath
+  ? `/${configuredBasePath}`
+  : '';
 const adminUsername = process.env.SMOKE_ADMIN_USERNAME;
 const adminPassword = process.env.SMOKE_ADMIN_PASSWORD;
 
@@ -11,7 +18,7 @@ function record(name, ok, detail = '') {
 }
 
 async function request(path, options = {}) {
-  return fetch(`${baseUrl}${path}`, {
+  return fetch(`${baseUrl}${requestBasePath}${path}`, {
     redirect: 'manual',
     ...options,
     headers: {
@@ -33,8 +40,8 @@ async function expectJsonArray(path) {
   record(`GET ${path}`, false, detail);
 }
 
-async function expectUnauthorized(path) {
-  const res = await request(path);
+async function expectUnauthorized(path, options) {
+  const res = await request(path, options);
   record(`Unauthorized ${path}`, res.status === 401, `status ${res.status}`);
 }
 
@@ -55,6 +62,13 @@ async function loginAndCheckDashboard() {
   if (!login.ok || !cookie) return;
 
   const headers = { Cookie: cookie };
+  const activity = await request('/api/auth/activity', { method: 'POST', headers });
+  record(
+    'POST /api/auth/activity',
+    activity.ok && Boolean(activity.headers.get('set-cookie')),
+    `status ${activity.status}, refreshes cookie`,
+  );
+
   const me = await request('/api/auth/me', { headers });
   record('GET /api/auth/me', me.ok, `status ${me.status}`);
 
@@ -73,6 +87,7 @@ async function main() {
   await expectJsonArray('/api/dental');
   await expectJsonArray('/api/health-stations');
   await expectUnauthorized('/api/auth/me');
+  await expectUnauthorized('/api/auth/activity', { method: 'POST' });
   await expectUnauthorized('/api/dashboard');
   await loginAndCheckDashboard();
 

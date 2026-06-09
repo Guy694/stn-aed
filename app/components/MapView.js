@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { MapContainer, Marker, Popup, GeoJSON, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Heart, MapPin, Layers, Satellite, Map, Info, Navigation } from 'lucide-react';
-import { apiFetch, publicPath } from '@/app/lib/client-api';
+import { pathCandidates, publicPath } from '@/app/lib/client-api';
 
 // Fix Leaflet default icon issue in Next.js
 delete L.Icon.Default.prototype._getIconUrl;
@@ -244,6 +244,39 @@ function UserLocationMarker({ position }) {
   );
 }
 
+async function fetchBoundaryGeoJson(apiPath, label) {
+  const urls = pathCandidates(apiPath);
+  const failures = [];
+
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      const contentType = response.headers.get('content-type') || '';
+
+      if (!response.ok) {
+        failures.push(`${url} -> HTTP ${response.status}`);
+        continue;
+      }
+
+      if (!contentType.includes('application/json')) {
+        failures.push(`${url} -> non-json (${contentType || 'unknown'})`);
+        continue;
+      }
+
+      const data = await response.json();
+      if (data?.type === 'FeatureCollection' && Array.isArray(data.features)) {
+        return data;
+      }
+
+      failures.push(`${url} -> invalid FeatureCollection`);
+    } catch (error) {
+      failures.push(`${url} -> ${error?.message || 'network error'}`);
+    }
+  }
+
+  throw new Error(`${label} fetch failed: ${failures.join(' | ')}`);
+}
+
 // Combined zoom + locate controls
 function MapControls({ onLocate }) {
   const map = useMap();
@@ -352,15 +385,10 @@ export default function MapView({
       return;
     }
     queueBoundaryLayerStatus('districts', 'loading');
-    apiFetch('/api/geo/districts')
-      .then((r) => { if (!r.ok) throw new Error('districts fetch failed'); return r.json(); })
+    fetchBoundaryGeoJson('/api/geo/districts', 'districts')
       .then((d) => {
-        if (d?.type === 'FeatureCollection') {
-          setDistrictData(d);
-          queueBoundaryLayerStatus('districts', 'ready');
-          return;
-        }
-        queueBoundaryLayerStatus('districts', 'error');
+        setDistrictData(d);
+        queueBoundaryLayerStatus('districts', 'ready');
       })
       .catch((error) => {
         queueBoundaryLayerStatus('districts', 'error');
@@ -378,15 +406,10 @@ export default function MapView({
       return;
     }
     queueBoundaryLayerStatus('tambons', 'loading');
-    apiFetch('/api/geo/tambons')
-      .then((r) => { if (!r.ok) throw new Error('tambons fetch failed'); return r.json(); })
+    fetchBoundaryGeoJson('/api/geo/tambons', 'tambons')
       .then((d) => {
-        if (d?.type === 'FeatureCollection') {
-          setTambonData(d);
-          queueBoundaryLayerStatus('tambons', 'ready');
-          return;
-        }
-        queueBoundaryLayerStatus('tambons', 'error');
+        setTambonData(d);
+        queueBoundaryLayerStatus('tambons', 'ready');
       })
       .catch((error) => {
         queueBoundaryLayerStatus('tambons', 'error');

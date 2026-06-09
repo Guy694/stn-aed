@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/app/lib/db';
 import { forbiddenResponse, unauthorizedResponse } from '@/app/lib/auth-guards';
+import { fillMissingDistricts } from '@/app/lib/dashboard-districts';
 import { getUserModulePermissions } from '@/app/lib/module-permissions';
 import { getSession } from '@/app/lib/session';
 
@@ -33,6 +34,7 @@ export async function GET(request) {
 
   try {
     const [
+      districts,
       aedByDistrict,
       aedBySheet,
       aedByTypecode,
@@ -45,6 +47,11 @@ export async function GET(request) {
       dentalByDistrict,
       hsByDistrict,
     ] = await Promise.all([
+      // Canonical Satun district list, including districts without module data
+      query(`SELECT dis_name AS name
+             FROM satun_district_polygon
+             WHERE dis_name IS NOT NULL AND dis_name <> ''
+             ORDER BY dis_code`),
       // AED count by district
       query(`SELECT district_name AS name, COUNT(*) AS total, SUM(status) AS active
              FROM aed GROUP BY district_name ORDER BY total DESC`),
@@ -98,21 +105,34 @@ export async function GET(request) {
              FROM health_stations GROUP BY district_name ORDER BY total DESC`),
     ]);
 
+    const completeAedByDistrict = fillMissingDistricts(districts, aedByDistrict, ['total', 'active']);
+    const completeAedQuantityByDistrict = fillMissingDistricts(
+      districts,
+      aedQuantityByDistrict,
+      ['quantity', 'damaged'],
+    );
+    const completeDentalByDistrict = fillMissingDistricts(
+      districts,
+      dentalByDistrict,
+      ['total', 'unit_count', 'ready_count'],
+    );
+    const completeHsByDistrict = fillMissingDistricts(districts, hsByDistrict, ['total', 'open_count']);
+
     return NextResponse.json({
       module: moduleKey,
-      aedByDistrict,
+      aedByDistrict: completeAedByDistrict,
       aedByTambon: [],
       aedBySheet,
       aedByCoordSource: [],
       aedByTypecode,
       aedActiveInactive,
-      aedQuantityByDistrict,
+      aedQuantityByDistrict: completeAedQuantityByDistrict,
       facByTypecode,
       facByDistrict,
       aedMissingCoords: aedMissingCoords[0],
       totalStats: totalStats[0],
-      dentalByDistrict,
-      hsByDistrict,
+      dentalByDistrict: completeDentalByDistrict,
+      hsByDistrict: completeHsByDistrict,
     });
   } catch (error) {
     console.error('Dashboard error:', error);

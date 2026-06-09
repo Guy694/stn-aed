@@ -74,8 +74,8 @@ export async function GET(request) {
        FROM admin_audit_logs
        ${whereSql}
        ORDER BY created_at DESC, id DESC
-       LIMIT ? OFFSET ?`,
-      [...params, safeLimit, offset],
+       LIMIT ${safeLimit} OFFSET ${offset}`,
+      params,
     );
 
     return NextResponse.json({

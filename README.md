@@ -92,6 +92,8 @@ mysql -u <user> -p <database> < database/migrations/003_security_event_logs.sql
 SMOKE_BASE_URL=http://localhost:3000 npm run smoke
 ```
 
+Smoke test จะอ่าน `NEXT_PUBLIC_BASE_PATH` จาก `.env` อัตโนมัติ เช่น `/stn-aed`
+
 ถ้าต้องการตรวจ authenticated dashboard:
 
 ```bash
@@ -105,6 +107,7 @@ Smoke test ไม่สร้าง/แก้/ลบข้อมูล ใช้
 
 ## Security Notes
 
+- Session จะถูก logout อัตโนมัติเมื่อไม่มีการใช้งานเกิน 15 นาที
 - API ที่แก้ข้อมูลใช้ `requireAdmin()`
 - Dashboard/report list ใช้ module permission guard
 - Admin actions สำคัญถูกบันทึกใน `admin_audit_logs`
