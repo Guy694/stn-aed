@@ -5,7 +5,7 @@ const isDocker = process.env.DEPLOY_TARGET === 'docker';
 const nextConfig = {
   ...(basePath && { basePath, assetPrefix: basePath }),
   ...(isDocker && { output: 'standalone' }),
-  allowedDevOrigins: ['192.169.3.158'],
+  allowedDevOrigins: ['192.169.100.147'],
   reactCompiler: true,
   experimental: {
     serverActions: { bodySizeLimit: '50mb' }
