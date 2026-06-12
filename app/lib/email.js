@@ -127,7 +127,7 @@ export async function sendEmail({ to, toName, subject, html, text }) {
   const from = process.env.SMTP_FROM;
   const fromName = process.env.SMTP_FROM_NAME || 'ระบบข้อมูลสุขภาพ สตูล';
   const requireStartTls = !secure && port !== 25;
-  const boundary = `stn-aed-${Date.now().toString(36)}`;
+  const boundary = `stn-service-${Date.now().toString(36)}`;
   const bodyText = text || htmlToText(html);
 
   let socket = await connectSmtp({ host, port, secure });

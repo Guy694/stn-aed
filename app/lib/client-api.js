@@ -130,7 +130,7 @@ export async function apiFetch(path, init) {
   const attempted = [];
 
   if (typeof window !== 'undefined' && apiPath === '/api/auth/logout') {
-    window.dispatchEvent(new Event('stn-aed:session-ended'));
+    window.dispatchEvent(new Event('stn-service:session-ended'));
   }
 
   for (let index = 0; index < urls.length; index += 1) {
@@ -150,7 +150,7 @@ export async function apiFetch(path, init) {
 
       if (typeof window !== 'undefined' && response.ok) {
         if (apiPath === '/api/auth/login') {
-          window.dispatchEvent(new Event('stn-aed:session-started'));
+          window.dispatchEvent(new Event('stn-service:session-started'));
         }
       }
 

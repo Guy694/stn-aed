@@ -1,5 +1,5 @@
 -- Migration: สร้างตาราง aed_reports สำหรับระบบแจ้งปัญหาเครื่อง AED
--- รัน: mysql -u root stn_aed < aed_reports.sql
+-- รัน: mysql -u root stn_service < aed_reports.sql
 
 CREATE TABLE IF NOT EXISTS `aed_reports` (
   `id`             INT NOT NULL AUTO_INCREMENT,

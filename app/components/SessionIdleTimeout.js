@@ -9,9 +9,9 @@ const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const ACTIVITY_PING_INTERVAL_MS = 30 * 1000;
 const ACTIVITY_RECORD_INTERVAL_MS = 1000;
 const ACTIVITY_TRAILING_PING_DELAY_MS = 5000;
-const LAST_ACTIVITY_KEY = 'stn-aed:last-activity';
-const SESSION_STARTED_EVENT = 'stn-aed:session-started';
-const SESSION_ENDED_EVENT = 'stn-aed:session-ended';
+const LAST_ACTIVITY_KEY = 'stn-service:last-activity';
+const SESSION_STARTED_EVENT = 'stn-service:session-started';
+const SESSION_ENDED_EVENT = 'stn-service:session-ended';
 
 const activityEvents = ['keydown', 'pointerdown', 'pointermove', 'scroll', 'touchstart'];
 

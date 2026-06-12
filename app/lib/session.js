@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 const secretKey = process.env.SESSION_SECRET;
 const encodedKey = new TextEncoder().encode(secretKey);
 
-const COOKIE_NAME = 'stn_aed_session';
+const COOKIE_NAME = 'stn_service_session';
 export const SESSION_IDLE_TIMEOUT_SECONDS = 15 * 60;
 export const SESSION_IDLE_TIMEOUT_MS = SESSION_IDLE_TIMEOUT_SECONDS * 1000;
 

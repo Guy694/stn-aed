@@ -92,7 +92,7 @@ mysql -u <user> -p <database> < database/migrations/003_security_event_logs.sql
 SMOKE_BASE_URL=http://localhost:3000 npm run smoke
 ```
 
-Smoke test จะอ่าน `NEXT_PUBLIC_BASE_PATH` จาก `.env` อัตโนมัติ เช่น `/stn-aed`
+Smoke test จะอ่าน `NEXT_PUBLIC_BASE_PATH` จาก `.env` อัตโนมัติ เช่น `/stn-service`
 
 ถ้าต้องการตรวจ authenticated dashboard:
 
